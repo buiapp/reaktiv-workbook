@@ -29,6 +29,8 @@ const RUNS_CELLS = new Set([
   '/v1/widget-message',
 ]);
 const PROGRESS_POLL_MS = 200;
+/** The last progress read after a request ends must not hold up its result for long. */
+const FINAL_PROGRESS_MS = 2000;
 
 /**
  * JSON/progress transport for both local and remote Python. It does not own UI
@@ -101,6 +103,16 @@ export class HttpKernelTransport {
       return await result;
     } finally {
       done = true;
+      // Cells that ended (and output printed) after the last poll: without them a cell
+      // stays marked running. A poll still in flight is ignored; this reads from the last
+      // delivered position instead. The response's graph replaces any later snapshot.
+      if (generation === this.generation) {
+        const rest = await this.progressSince(connection, cursor, AbortSignal.timeout(FINAL_PROGRESS_MS));
+        if (rest !== null && generation === this.generation) {
+          for (const event of rest.events) this.progress(event);
+          for (const entry of rest.logs) this.log(entry);
+        }
+      }
     }
   }
 
@@ -132,6 +144,7 @@ export class HttpKernelTransport {
   private async progressSince(
     connection: KernelConnection,
     after: number | null,
+    signal?: AbortSignal,
   ): Promise<{
     seq: number;
     events: CellProgress[];
@@ -145,6 +158,7 @@ export class HttpKernelTransport {
         connection,
         '/v1/progress',
         this.withOutputs(after === null ? {} : { after }, lease.keys),
+        signal,
       );
       if (!response.ok) return null;
       const raw = await response.json();

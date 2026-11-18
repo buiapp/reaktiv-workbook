@@ -104,6 +104,8 @@ describe('RuntimeService remote kernel', () => {
       // Where the cell progress log stands before the update.
       'http://127.0.0.1:8765/v1/progress',
       'http://127.0.0.1:8765/v1/apply',
+      // Cells that ended after the last poll.
+      'http://127.0.0.1:8765/v1/progress',
       'http://127.0.0.1:8765/v1/restart',
     ]);
     expect(bodies).toEqual([

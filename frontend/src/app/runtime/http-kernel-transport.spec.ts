@@ -101,7 +101,8 @@ it('delivers intermediate HTTP snapshots and ignores an in-flight poll after com
       if (!String(input).endsWith('/v1/progress')) return new Promise<Response>(resolve => { finish = resolve; });
       if (++polls === 1) return Promise.resolve(new Response('{"seq":0,"events":[]}'));
       if (polls === 2) return Promise.resolve(new Response('{"seq":1,"events":[],"snapshot":{"cells":[{"id":"A1","value":2}]}}'));
-      return new Promise<Response>(resolve => { finishPoll = resolve; });
+      if (polls === 3) return new Promise<Response>(resolve => { finishPoll = resolve; });
+      return Promise.resolve(new Response('{"seq":2,"events":[]}'));   // the final read after completion
     }));
     const transport = new HttpKernelTransport(() => ({url: 'http://kernel', token: null}), new PerformanceDiagnostics(), vi.fn(), vi.fn(), snapshot);
     const running = transport.request('/v1/run-action', {});
@@ -148,4 +149,41 @@ it('an obsolete response cannot enable rich-output negotiation for a new kernel'
   await old;await transport.request('/v1/clear-logs',{},false);
   expect(JSON.parse(fetcher.mock.calls[1][1].body).knownOutputs).toBeUndefined();
  }finally{vi.unstubAllGlobals();}
+});
+
+it('delivers cell ends and logs that the kernel recorded after the last progress poll', async () => {
+  // The kernel's progress log: a poll returns the entries numbered after its cursor.
+  vi.useFakeTimers();
+  try {
+    const log: Array<{seq: number; event?: {event: string; cellId: string}; entry?: {level: string; message: string}}> = [];
+    const record = (item: {event?: {event: string; cellId: string}; entry?: {level: string; message: string}}) => log.push({seq: log.length + 1, ...item});
+    let finish!: (response: Response) => void;
+    vi.stubGlobal('fetch', vi.fn(async (input: string, init: RequestInit) => {
+      if (!String(input).endsWith('/v1/progress')) return new Promise<Response>(resolve => { finish = resolve; });
+      const after = JSON.parse(String(init.body)).after as number | undefined;
+      const newer = after === undefined ? [] : log.filter(item => item.seq > after);
+      return new Response(JSON.stringify({
+        seq: log.length,
+        events: newer.flatMap(item => item.event ? [item.event] : []),
+        logs: newer.flatMap(item => item.entry ? [item.entry] : []),
+      }));
+    }));
+    const progress = vi.fn(), logs = vi.fn();
+    const transport = new HttpKernelTransport(() => ({url: 'http://kernel', token: null}), new PerformanceDiagnostics(), progress, logs);
+    const running = transport.request('/v1/set-inputs', {});
+    await vi.advanceTimersByTimeAsync(0);
+    record({event: {event: 'start', cellId: 'Algorithm!A17'}});
+    await vi.advanceTimersByTimeAsync(200);            // a poll delivers the start
+    expect(progress).toHaveBeenLastCalledWith({event: 'start', cellId: 'Algorithm!A17'});
+    // The cell finishes and the response arrives before the next poll.
+    record({entry: {level: 'info', message: 'done'}});
+    record({event: {event: 'end', cellId: 'Algorithm!A17'}});
+    finish(new Response('{}'));
+    await running;
+    await vi.advanceTimersByTimeAsync(400);
+    expect(progress).toHaveBeenLastCalledWith({event: 'end', cellId: 'Algorithm!A17'});
+    expect(logs).toHaveBeenCalledWith({level: 'info', message: 'done'});
+  } finally {
+    vi.unstubAllGlobals(); vi.useRealTimers();
+  }
 });
