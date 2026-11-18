@@ -3,7 +3,7 @@
 The workbook is the product unit: an executable Python model, explanatory notes
 and presentation. Angular edits and observes that model. Reaktiv owns execution.
 Python owns the workbook file format. These boundaries apply to browser,
-CLI and embedded use. The [feature guide](FEATURES.md) describes what users see.
+CLI and embedded use. The [user guide](index.md) describes what users see.
 
 ## Responsibility map
 
@@ -116,9 +116,14 @@ determines variable card dimensions without decoding payloads. `GraphWorkspace`
 owns per-pane visual pins: layout/connections freeze while values and inspection
 remain live. Pins contain no output payloads, follow pane swaps, prune deletions,
 and clear on document replacement and coordinate-changing edits.
-Optional [scrollable levels](GRAPH-LEVELS.md) reuse those cards and connections;
-`GraphWorkspace` owns per-pane offsets and `GraphLevelsComponent` projects clipped
-connectors from native scrolling without changing the captured layout.
+Optional scrollable levels (**Graph → Scrollable levels**) reuse those cards and
+connections; `GraphWorkspace` owns the preference and per-pane `GraphLevelScrollState`
+(offsets and selection intent only) and `GraphLevelsComponent` projects clipped
+connectors from native scrolling without changing the captured layout. `graphLevels`
+groups existing layout geometry; `projectGraphLevels` computes visible endpoints and
+indicators from scroll offsets and the measured viewport, once per animation frame.
+Pins keep their captured nodes, connections and direction; scrolling never reads cell
+signals, evaluates cells, or changes source, dirty state or undo history.
 
 `workbook/dependency-index.ts` indexes producers to consumers. Direct-dependent
 navigation avoids rescanning every edge; affected-cell traversal visits each
@@ -189,7 +194,7 @@ describe actual collaborators rather than mirror all fields of the engine.
   `experimentalUpdateTracing=1` in the window URL exposes it and enables collection
   on apply. Error diagnostics independent of update traces remain active.
 
-Measure with **Settings → App → Record performance** ([feature guide](FEATURES.md)). A faster
+Measure with **Settings → App → Record performance**. A faster
 frontend projection does not establish a speedup in Python calculations.
 
 ## Reproducible development
@@ -248,7 +253,7 @@ translation; it reuses the legacy cell codec in `model.py` to preserve every cel
 kind. `composition.py` provides typed native `Workbook`, `Worksheet` and
 `worksheet()` descriptors, initializing all worksheet namespaces before starting
 eager resources/effects. Python remains the sole source writer. See
-[format specification](WORKBOOK-FORMAT.md).
+[file format](file-format.md).
 
 Legacy opening provenance comes from the static `file_api.inspect_document`
 boundary (and `sourceFormatVersion` in CLI session state). `WorkbookState.migration`
@@ -290,7 +295,7 @@ its HTTP server. `session_assets.py` transfers bounded content-addressed images.
 The server supplies the frontend session mode; `run` rejects authoring independently
 of the UI. `scripts/build-python-package.mjs` prepares production web package data
 and builds the Sheet and companion core release candidates. See
-[Standalone CLI](STANDALONE-CLI.md) for the public package dependency boundary.
+[Development](development.md#build-and-release-the-python-package) for the public package dependency boundary.
 
 The workbook keeps the action lifecycle; the separate `reaktiv` package provides the
 signals and passive graph metadata through its public APIs.

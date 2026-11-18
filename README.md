@@ -16,7 +16,8 @@ updates — and nothing else reruns.
   machine; `run` serves the workbook as an interactive app.
 - **Agents welcome.** `edit --mcp` lets coding agents read and edit the open workbook
   through MCP while you watch; the MCP server hands them its authoring guide. Agents
-  that edit `.workbook.py` files directly can follow [Getting started](docs/GETTING-STARTED.md).
+  that edit `.workbook.py` files directly can follow the same
+  [authoring guide](python/reaktiv_workbook/skills/workbook-authoring/SKILL.md).
 
 ## Install
 
@@ -72,14 +73,16 @@ class BudgetWorkbook(Workbook):
 
 In the editor you change `rent` with a field or a widget; `left` and the note update.
 In Python, `BudgetWorkbook().Sheet1.left()` returns `1750`. The editor writes this file
-for you; you rarely edit it by hand. See [the workbook format](docs/WORKBOOK-FORMAT.md).
+for you; you rarely edit it by hand. See [the workbook file](docs/file-format.md).
 
 ## Documentation
 
-- [Getting started](docs/GETTING-STARTED.md): concepts, creating workbooks, best practices.
-- [Feature guide](docs/FEATURES.md): notes, cells, graph, widgets, actions and the editor.
-- [Command line](docs/STANDALONE-CLI.md) and [Python package](docs/PYTHON-PACKAGE.md).
-- [All documentation](docs/README.md).
+Read it at [workbook.bui.app/docs](https://workbook.bui.app/docs/), or here:
+
+- [Getting started](docs/getting-started.md): build your first workbook.
+- [Cells](docs/cells.md), [notes](docs/notes.md) and [using the app](docs/app.md).
+- [Command line](docs/cli.md) and [Python API](docs/python-api.md).
+- [All documentation](docs/index.md).
 
 The same guide is an interactive workbook: `reaktiv-workbook edit examples/docs/guide.workbook.py`.
 
@@ -123,7 +126,8 @@ tests/      Python tests and the workbook fixtures shared with the frontend test
 docs/       User guides and the architecture overview
 ```
 
-[Architecture](docs/ARCHITECTURE.md) describes how the pieces fit together.
+[Architecture](docs/architecture.md) describes how the pieces fit together, and
+[Development](docs/development.md) how to build and test them.
 The reactive core is the separate [`reaktiv`](https://pypi.org/project/reaktiv/) package.
 
 ## License
