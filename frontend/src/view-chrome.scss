@@ -1,0 +1,155 @@
+/* One header row, one options popover and one floating zoom control for every view
+   (Notes, Cells, Graph and split panes), so the views look and behave the same. */
+
+/* View header: a single 40px row; secondary settings live in app-view-options. */
+app-root .app-shell .view-header {
+  display: flex;
+  min-width: 0;
+  min-height: 40px;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  font-size: 12px;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+app-root .app-shell .view-header > * { flex: 0 0 auto; }
+app-root .app-shell .view-header > .cell-toolbar-spacer { flex: 1 0 8px; }
+app-root .app-shell .view-header .icon-only {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+}
+
+/* The options button and its popover (app-view-options). */
+app-root .app-shell .view-options-button {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  background: var(--paper);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+app-root .app-shell .view-options-button:hover { border-color: var(--ink); }
+app-root .app-shell .options-section {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  white-space: normal;
+}
+app-root .app-shell .options-section + .options-section { padding-top: 10px; border-top: 1px solid var(--line); }
+app-root .app-shell .options-section h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+app-root .app-shell .options-section label { display: flex; align-items: center; gap: 8px; }
+app-root .app-shell .options-section .options-row { display: flex; gap: 6px; }
+app-root .app-shell .options-section .legend { display: flex; align-items: center; gap: 8px; }
+
+/* Floating zoom (app-zoom-control): bottom-right over the canvas, same in every view. */
+app-root .app-shell .zoom-overlay {
+  position: absolute;
+  z-index: 6;
+  right: 14px;
+  bottom: 14px;
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.08);
+  font-size: 12px;
+}
+app-root .app-shell .zoom-overlay > button {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  color: var(--ink);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+app-root .app-shell .zoom-overlay > button + button { border-left: 1px solid var(--line); }
+app-root .app-shell .zoom-overlay > button:hover { background: var(--hover, light-dark(#f1f2ee, #222220)); }
+app-root .app-shell .zoom-overlay > button[data-view-zoom-value] { min-width: 52px; font-variant-numeric: tabular-nums; }
+
+/* Canvases are the positioning context of their floating zoom. */
+app-root .app-shell .sheet-area, app-root .app-shell .graph-view { position: relative; }
+app-root .app-shell .sheet-area > app-zoom-control { bottom: 48px; } /* above the sheet tabs */
+
+/* The legend row is gone: panels start with their view header. */
+app-root .app-shell .sheet-panel, app-root .app-shell .sheet-panel.has-cell-toolbar, app-root .app-shell .sheet-panel.without-legend { grid-template-rows: minmax(0, 1fr); }
+
+/* One colour button with a palette popover instead of a row of swatches. */
+app-root .app-shell .color-trigger .color-dot {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background-image: linear-gradient(135deg, transparent 45%, var(--muted) 45%, var(--muted) 55%, transparent 55%);
+}
+app-root .app-shell .color-trigger .color-dot[style*="background: rgb"],
+app-root .app-shell .color-trigger .color-dot[style*="background: #"] { background-image: none; }
+app-root .app-shell .color-menu {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.16);
+}
+app-root .app-shell .color-menu:popover-open { display: flex; gap: 6px; }
+
+/* Swap sides sits with the view switch while Split is active. */
+app-root .app-shell .title-views .split-swap {
+  display: inline-grid;
+  width: 30px;
+  height: 30px;
+  margin-left: 6px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: var(--paper);
+  cursor: pointer;
+}
+app-root .app-shell .title-views .split-swap:hover { border-color: var(--ink); }
+/* Older .cell-toolbar-colors rules set display; a closed popover must stay hidden. */
+app-root .app-shell .cell-toolbar .color-menu:not(:popover-open) { display: none; }
+
+/* In a note the page scrolls, so the shared zoom sticks to the bottom-right of the view. */
+app-root .app-shell app-markdown-cell-editor .note-editor > app-zoom-control {
+  position: sticky;
+  right: auto;
+  bottom: 14px;
+  display: flex;
+  width: max-content;
+  margin: -42px 14px 14px auto;
+}
+
+/* Rarely needed cell settings start collapsed in the cell panel. */
+app-root .app-shell .inspector-advanced { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+app-root .app-shell .inspector-advanced > summary { color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+app-root .app-shell .inspector-advanced[open] > summary { margin-bottom: 8px; }

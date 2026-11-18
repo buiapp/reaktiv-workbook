@@ -1,0 +1,58 @@
+name: Publish to PyPI
+
+# Push a tag such as v0.1.0 (matching pyproject.toml's version) to publish it. Uses PyPI
+# trusted publishing: no token is stored; PyPI trusts this workflow in the `pypi` environment.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and check the package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: uv sync
+      - name: The tag matches the package version
+        if: github.ref_type == 'tag'
+        run: |
+          version=$(uv run --no-sync python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME does not match version $version"; exit 1; }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run package:python
+      - name: Smoke-test the wheel in a clean environment
+        run: |
+          uv venv /tmp/smoke --python 3.12
+          uv pip install --python /tmp/smoke/bin/python release/python/*.whl
+          /tmp/smoke/bin/python scripts/test-python-package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-package
+          path: release/python/
+
+  publish:
+    name: Upload to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/reaktiv-workbook/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-package
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

@@ -1,0 +1,17 @@
+/* Shared workspace panes keep view controls with the view they affect. */
+app-root .pane-workspace { display: grid; min-height: 0; min-width: 0; background: var(--theme-line, light-dark(#e9e8e3, #292926)); }
+app-root .workspace-pane { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; background: var(--theme-paper, light-dark(#fdfdfb, #161614)); }
+app-root .pane-heading { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--theme-line, light-dark(#e9e8e3, #292926)); }
+app-root .pane-heading select { min-width: 0; max-width: 100%; flex: 1 1 90px; border: 1px solid var(--theme-line-strong, light-dark(#d7d6d0, #3a3a36)); border-radius: 6px; padding: 3px 6px; color: inherit; background: var(--theme-paper, light-dark(#fdfdfb, #161614)); font: inherit; }
+app-root .sheet-area > .cell-toolbar { flex: none; min-height: 38px; }
+app-root .sheet-area > .zoom-controls { flex: none; justify-content: end; padding: 4px 10px; border-top: 1px solid var(--theme-line, light-dark(#e9e8e3, #292926)); }
+app-root .graph-edges .widget-configuration-edge { stroke-dasharray: 4 3; }
+@media (max-width: 640px) {
+  app-root .workspace.split-workspace:not(.inspector-open) { grid-template-rows: minmax(0, 1fr); }
+  app-root .pane-workspace { grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+  app-root .pane-workspace > .split-resize-handle { display: none; }
+}
+
+/* Single views share the same pane host without adding layout boxes. */
+app-root .pane-workspace.single-workspace,
+app-root .single-workspace > .workspace-pane { display: contents; }

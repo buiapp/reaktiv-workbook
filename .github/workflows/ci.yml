@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Python tests, types and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: uv sync
+      - run: uv run --no-sync ruff check python tests scripts
+      - run: uv run --no-sync pyright
+      - run: uv run --no-sync pytest tests/python -q
+        env:
+          MPLBACKEND: Agg
+
+  frontend:
+    name: Frontend tests, build and Pyodide workers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      # The build copies the reaktiv core sources from the Python environment.
+      - run: uv sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx ng test --watch=false
+      - run: npm run build
+      - run: npm run test:file-worker
+      - run: npm run test:runtime-worker
+
+  package:
+    name: Python package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: uv sync
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run package:python
+      - name: Smoke-test the wheel in a clean environment
+        run: |
+          uv venv /tmp/smoke --python 3.12
+          uv pip install --python /tmp/smoke/bin/python release/python/*.whl
+          /tmp/smoke/bin/python scripts/test-python-package.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-package
+          path: release/python/

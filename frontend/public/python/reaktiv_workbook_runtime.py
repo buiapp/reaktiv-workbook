@@ -1,0 +1,60 @@
+"""Compatibility entry point for the Pyodide worker.
+
+The reusable implementation lives in the ``reaktiv_workbook`` Python package.
+"""
+
+from reaktiv_workbook.browser import (
+    set_output_cache,
+    apply_model,
+    apply_model_async,
+    clear_logs,
+    run_console,
+    cell_memory,
+    inspect_document,
+    move_workbook_command,
+    move_model,
+    move_model_group,
+    resample_view,
+    run_effect,
+    run_action,
+    queue_action_inputs,
+    set_inputs,
+    update_action,
+    cancel_action,
+    cancel_resource,
+    set_progress_reporter,
+    set_log_reporter,
+    set_snapshot_reporter,
+    tick_timer,
+    update_widget,
+    verify_document,
+    widget_message,
+)
+
+
+__all__ = [
+    "set_output_cache",
+    "apply_model",
+    "apply_model_async",
+    "clear_logs",
+    "run_console",
+    "cell_memory",
+    "inspect_document",
+    "move_model",
+    "move_model_group",
+    "resample_view",
+    "run_effect",
+    "run_action",
+    "queue_action_inputs",
+    "set_inputs",
+    "update_action",
+    "cancel_action",
+    "cancel_resource",
+    "set_progress_reporter",
+    "set_log_reporter",
+    "set_snapshot_reporter",
+    "tick_timer",
+    "update_widget",
+    "verify_document",
+    "widget_message",
+]

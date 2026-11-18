@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "reaktiv-workbook"
+version = "0.1.1"
+description = "Reactive Python workbooks with a browser IDE and command-line tools"
+readme = "docs/PYTHON-PACKAGE.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Tuan Anh Bui", email = "mail@bui.app"}]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.12"
+dependencies = [
+    "reaktiv>=0.25.0",
+    # The kernel process and agent endpoint (CPython only; Pyodide never imports them).
+    # Libraries a workbook uses (numpy, pandas, plotly, ...) are declared by the workbook.
+    "psutil>=7.0; sys_platform != 'emscripten'",
+    "fastapi>=0.115; sys_platform != 'emscripten'",
+    "uvicorn>=0.30; sys_platform != 'emscripten'",
+    "mcp>=1.26,<2; sys_platform != 'emscripten'",
+]
+
+[project.urls]
+Homepage = "https://github.com/buiapp/reaktiv-workbook"
+Repository = "https://github.com/buiapp/reaktiv-workbook"
+Issues = "https://github.com/buiapp/reaktiv-workbook/issues"
+Documentation = "https://github.com/buiapp/reaktiv-workbook/tree/main/docs"
+
+[project.optional-dependencies]
+dev = ["pyright", "types-psutil", "httpx>=0.27"]
+
+# Development tools stay out of the published runtime requirements.
+[dependency-groups]
+dev = [{include-group = "test"}, {include-group = "typecheck"}]
+test = [
+    "numpy>=1.26",
+    "pytest>=8", "pytest-asyncio>=0.24", "httpx>=0.27", "ruff>=0.15",
+    "matplotlib>=3.9", "pandas>=2.2", "plotly>=6", "anywidget>=0.9",
+]
+typecheck = ["pyright>=1.1.398", "types-psutil", "numpy>=1.26"]
+
+[project.scripts]
+reaktiv-workbook = "reaktiv_workbook.cli:command_main"
+reaktiv-workbook-server = "reaktiv_workbook.server:main"
+reaktiv-workbook-mcp = "reaktiv_workbook.mcp_server:main"
+
+[tool.setuptools]
+package-dir = {"" = "python"}
+
+[tool.setuptools.packages.find]
+where = ["python"]
+namespaces = false
+
+[tool.setuptools.package-data]
+reaktiv_workbook = ["skills/*/SKILL.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"

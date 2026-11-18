@@ -1,0 +1,13 @@
+/* Type markers stay visible alongside selection, dependency and user colours. */
+app-root .graph-node::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--graph-type-color);
+  pointer-events: none;
+}
+app-root .graph-node-meta { display: flex; min-width: 0; align-items: center; gap: 6px; }

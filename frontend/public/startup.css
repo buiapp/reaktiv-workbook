@@ -1,0 +1,11 @@
+/* Independent of the Angular bundle: readable even when application CSS/JS fails. */
+#startup-screen { position: fixed; inset: 0; z-index: 10000; overflow: auto; box-sizing: border-box; padding: 8vh 24px; background: #fafaf7; color: #20251b; font: 15px/1.5 system-ui, sans-serif; }
+#startup-screen[hidden] { display: none; }
+#startup-screen .startup-card { max-width: 740px; margin: auto; }
+#startup-screen h1 { font-size: 26px; }
+#startup-status { white-space: pre-wrap; overflow-wrap: anywhere; }
+#startup-screen button { padding: 8px 14px; border: 1px solid #707566; border-radius: 6px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+#startup-screen details { margin-top: 18px; }
+#startup-screen textarea { box-sizing: border-box; width: 100%; min-height: 240px; margin-top: 8px; padding: 10px; background: transparent; color: inherit; font: 12px/1.4 monospace; }
+html[data-theme='dark'] #startup-screen { background: #171a15; color: #e8ebdf; }
+@media (prefers-color-scheme: dark) { html:not([data-theme='light']) #startup-screen { background: #171a15; color: #e8ebdf; } }

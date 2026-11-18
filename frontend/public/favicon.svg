@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- The app's brand mark (.brand-mark in app.scss): an R on a lime rounded square. -->
+  <rect width="32" height="32" rx="8" fill="#c7f36b"/>
+  <text x="16" y="17" fill="#172103" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif"
+    font-size="20" font-weight="750" text-anchor="middle" dominant-baseline="central">R</text>
+</svg>

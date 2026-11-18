@@ -1,0 +1,11 @@
+# Python 3.12+ (Pyodide ships 3.13).
+target-version = "py312"
+line-length = 120
+# Workbook files are generated and import what any cell may use.
+extend-exclude = ["tests/fixtures", "examples", "**/*.sheet.py", "**/*.workbook.py", "python/reaktiv_workbook/web", "frontend"]
+
+[lint]
+# Errors and pyflakes; style is left to the code's existing conventions.
+select = ["E4", "E7", "E9", "F"]
+# One-line statements and assigned lambdas are used deliberately in compact code.
+ignore = ["E701", "E702", "E731"]

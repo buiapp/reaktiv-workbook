@@ -1,0 +1,55 @@
+import type { GraphResult, SheetDocument } from './sheet.types';
+
+export interface EmbeddedSessionState {
+  mode?: 'embedded' | 'edit' | 'run';
+  /** The workbook file the CLI session owns (absolute path on its machine). */
+  path?: string;
+  assets?: Record<string, string>;
+  revision: number;
+  document: SheetDocument;
+  graph: GraphResult;
+}
+
+/** Explicit local attachment; the bearer token stays in the fragment, not HTTP URLs. */
+export function linkedSession(search: string, hash: string): { endpoint: string; token: string } | null {
+  const requested = new URLSearchParams(search).get('session');
+  if (requested === null) return null;
+  const url = new URL(requested);
+  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)
+      || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('Embedded sessions must use a local HTTP kernel URL.');
+  }
+  const token = new URLSearchParams(hash.replace(/^#/, '')).get('token');
+  if (!token) throw new Error('The embedded session link is missing its access token.');
+  return { endpoint: url.origin, token };
+}
+
+/**
+ * The agent (MCP) bridge started by `reaktiv-workbook edit --mcp`: share this workbook with it.
+ * Like the session, it must be local; the pairing token comes in the fragment. The token is
+ * long-lived, so the page removes it from the address (`withoutAgentToken`); after a reload the
+ * pairing remembered for the same bridge is used instead.
+ */
+export function linkedAgentBridge(search: string, hash: string,
+                                  remembered: { endpoint: string; token: string } | null = null): { endpoint: string; token: string } | null {
+  const requested = new URLSearchParams(search).get('mcp');
+  if (requested === null) return null;
+  const url = new URL(requested);
+  if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)
+      || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('The agent bridge must be a local HTTP URL.');
+  }
+  const token = new URLSearchParams(hash.replace(/^#/, '')).get('mcpToken')
+    ?? (remembered?.endpoint === url.origin ? remembered.token : null);
+  if (!token) throw new Error('The agent bridge link is missing its pairing token.');
+  return { endpoint: url.origin, token };
+}
+
+/** The fragment without the agent pairing token (null when there is none to remove). */
+export function withoutAgentToken(hash: string): string | null {
+  const parameters = new URLSearchParams(hash.replace(/^#/, ''));
+  if (!parameters.has('mcpToken')) return null;
+  parameters.delete('mcpToken');
+  const rest = parameters.toString();
+  return rest ? '#' + rest : '';
+}

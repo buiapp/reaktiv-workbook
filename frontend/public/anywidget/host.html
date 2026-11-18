@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- Hosts one anywidget in a sandboxed iframe (see frontend/src/app/anywidget-view.ts). -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Inline on purpose: an inline script works in this opaque-origin frame, where a
+         'self' script source may not. -->
+    <script>
+// Runs one anywidget (https://anywidget.dev) inside a sandboxed iframe, implementing the
+// anywidget front-end module (AFM) API: initialize/render (with cleanups), model get/set/
+// on/off/save_changes/send, msg:custom, widget_manager.get_model, binary values as
+// DataView, experimental.invoke, and _esm/_css given as code or as a URL. The app sends the
+// widget's module, CSS, and state; changes and messages go back (frontend/src/app/anywidget-view.ts).
+// The iframe has an opaque origin: widget code cannot reach the app.
+
+(() => {
+// Base styles are added here, not in an inline <style>: if a host CSP lists the hash of an
+// inline <style>, 'unsafe-inline' becomes void and the <style> elements that widgets' _css
+// need would be refused (unstyled widgets).
+const base = document.createElement('style');
+base.textContent = `
+  :root { font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+  html, body { margin: 0; background: transparent; }
+  #root { padding: 2px; }
+  .anywidget-error { color: #b3261e; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; white-space: pre-wrap; }
+`;
+document.head.append(base);
+const root = document.getElementById('root');
+// Same colour scheme as the app (passed as #scheme=light|dark): WebKit paints a frame
+// opaquely when its scheme differs from the page's, which showed widgets as black boxes.
+const scheme = /scheme=(light|dark)/.exec(location.hash)?.[1] ?? 'light';
+document.documentElement.style.colorScheme = scheme;
+// One model per widget: the rendered widget's own, plus the widgets its state refers to
+// (`IPY_MODEL_<id>`), which `widget_manager.get_model(id)` returns.
+const models = new Map();
+const cleanups = [];
+function post(message) {
+  parent.postMessage({ source: 'reaktiv-anywidget', ...message }, '*');
+}
+// Binary values travel as {"$binary": base64}; widgets see DataView objects, as in anywidget.
+function decode(value) {
+  if (Array.isArray(value)) return value.map(decode);
+  if (value && typeof value === 'object') {
+    if (typeof value.$binary === 'string' && Object.keys(value).length === 1) {
+      const bytes = Uint8Array.from(atob(value.$binary), (character) => character.charCodeAt(0));
+      return new DataView(bytes.buffer);
+    }
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, decode(item)]));
+  }
+  return value;
+}
+function encode(value) {
+  if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
+    const bytes = value instanceof ArrayBuffer ? new Uint8Array(value) : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+    let text = '';
+    for (const byte of bytes) text += String.fromCharCode(byte);
+    return { $binary: btoa(text) };
+  }
+  if (Array.isArray(value)) return value.map(encode);
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, encode(item)]));
+  }
+  return value;
+}
+function createModel(initialId, initial) {
+  let id = initialId;
+  let state = decode(initial ?? {});
+  let pending = {};
+  const listeners = new Map();
+  const emit = (name, ...args) => {
+    for (const callback of listeners.get(name) ?? []) {
+      try {
+        callback(...args);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  };
+  const model = {
+    get: (key) => state[key],
+    set: (key, value) => {
+      state[key] = value;
+      pending[key] = value;
+      emit(`change:${key}`, value);
+      emit('change');
+    },
+    on: (name, callback) => {
+      if (!listeners.has(name)) listeners.set(name, new Set());
+      listeners.get(name).add(callback);
+    },
+    off: (name, callback) => {
+      if (name === undefined || name === null) listeners.clear();
+      else if (callback === undefined) listeners.delete(name);
+      else listeners.get(name)?.delete(callback);
+    },
+    save_changes: () => {
+      if (Object.keys(pending).length === 0) return;
+      post({ type: 'save', modelId: id, state: encode(pending) });
+      pending = {};
+    },
+    // Custom messages: Python's on_msg handlers receive (content, buffers).
+    send: (content, _callbacks, buffers = []) => {
+      post({ type: 'msg', modelId: id, content: encode(content), buffers: buffers.map(encode) });
+    },
+    widget_manager: {
+      get_model: (modelId) =>
+        models.has(modelId)
+          ? Promise.resolve(models.get(modelId).model)
+          : Promise.reject(new Error(`Unknown widget model ${modelId}`)),
+    },
+  };
+  return {
+    model,
+    /** State changed in Python (or after a recompute): apply it and notify the view. */
+    apply(next) {
+      let changed = false;
+      for (const [key, raw] of Object.entries(next ?? {})) {
+        if (JSON.stringify(encode(state[key])) === JSON.stringify(raw)) continue;
+        state[key] = decode(raw);
+        changed = true;
+        emit(`change:${key}`, state[key]);
+      }
+      if (changed) emit('change');
+    },
+    receive(content, buffers) {
+      emit('msg:custom', decode(content), (buffers ?? []).map(decode));
+    },
+    /** The cell ran again and made a new widget: this model now speaks for it. */
+    retarget(nextId) {
+      id = nextId;
+    },
+  };
+}
+/** anywidget's experimental.invoke: a command message, answered by @experimental.command. */
+function invoke(model, name, msg, options = {}) {
+  const { buffers = [], signal, timeout = 3000 } = options;
+  const id = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const finish = () => {
+      clearTimeout(timer);
+      model.off('msg:custom', handler);
+      signal?.removeEventListener('abort', abort);
+    };
+    const handler = (message, received) => {
+      if (message?.id !== id) return;
+      finish();
+      resolve([message.response, received]);
+    };
+    const abort = () => {
+      finish();
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      finish();
+      reject(new Error(`Promise timed out after ${timeout} ms`));
+    }, timeout);
+    signal?.addEventListener('abort', abort);
+    model.on('msg:custom', handler);
+    model.send({ id, kind: 'anywidget-command', name, msg }, undefined, buffers);
+  });
+}
+function syncModels(spec) {
+  for (const [id, child] of Object.entries(spec.models ?? {})) {
+    if (models.has(id)) models.get(id).apply(child.state);
+    else models.set(id, createModel(id, child.state));
+  }
+}
+const isUrl = (text) => /^https?:\/\//.test(text.trim());
+async function render(spec) {
+  const id = spec.modelId ?? 'widget';
+  models.set(id, createModel(id, spec.state));
+  syncModels(spec);
+  const { model } = models.get(id);
+  if (spec.css) {
+    if (isUrl(spec.css)) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = spec.css.trim();
+      document.head.append(link);
+    } else {
+      const style = document.createElement('style');
+      style.textContent = spec.css;
+      document.head.append(style);
+    }
+  }
+  try {
+    let module;
+    if (isUrl(spec.esm)) {
+      module = await import(spec.esm.trim());
+    } else {
+      const url = URL.createObjectURL(new Blob([spec.esm], { type: 'text/javascript' }));
+      module = await import(url);
+      URL.revokeObjectURL(url);
+    }
+    let widget = module.default ?? module;
+    if (typeof widget === 'function') widget = await widget();
+    const experimental = { invoke: (name, msg, options) => invoke(model, name, msg, options) };
+    const initialized = await widget.initialize?.({ model, experimental });
+    if (typeof initialized === 'function') cleanups.push(initialized);
+    const rendered = await widget.render?.({ model, el: root, experimental });
+    if (typeof rendered === 'function') cleanups.push(rendered);
+  } catch (error) {
+    root.innerHTML = '';
+    const message = document.createElement('pre');
+    message.className = 'anywidget-error';
+    message.textContent = `Widget error: ${error?.message ?? error}`;
+    root.append(message);
+    post({ type: 'error', message: String(error?.message ?? error) });
+  }
+  return id;
+}
+let rootId = null;
+new ResizeObserver(() => post({ type: 'height', height: document.documentElement.scrollHeight })).observe(
+  document.body,
+);
+
+window.addEventListener('message', (event) => {
+  if (event.source !== parent || event.data?.source !== 'reaktiv-host') return;
+  const message = event.data;
+  if (message.type === 'render') {
+    void render(message).then((id) => (rootId = id));
+  } else if (message.type === 'state') {
+    if (rootId !== null && message.modelId && message.modelId !== rootId && models.has(rootId)) {
+      const root = models.get(rootId);
+      models.delete(rootId);
+      root.retarget(message.modelId);
+      models.set(message.modelId, root);
+      rootId = message.modelId;
+    }
+    if (rootId !== null) models.get(rootId)?.apply(message.state ?? {});
+    syncModels(message);
+  } else if (message.type === 'msg') {
+    models.get(message.modelId ?? rootId)?.receive(message.content, message.buffers);
+  } else if (message.type === 'scheme') {
+    document.documentElement.style.colorScheme = message.scheme;
+  }
+});
+window.addEventListener('pagehide', () => {
+  for (const cleanup of cleanups.splice(0)) {
+    try {
+      cleanup();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+});
+post({ type: 'ready' });
+})();
+    </script>
+  </body>
+</html>

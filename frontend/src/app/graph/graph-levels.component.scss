@@ -1,0 +1,21 @@
+:host { display:block; min-height:0; min-width:0; height:100%; }
+.levels-viewport { width:100%; height:100%; cursor:auto; touch-action:auto; }
+.levels-track { position:relative; }
+.graph-level { position:absolute; box-sizing:border-box; border:1px solid var(--line-strong); border-radius:9px; background:var(--paper); overflow:hidden; }
+.level-heading { position:relative; z-index:3; box-sizing:border-box; padding:8px; background:var(--panel); border-bottom:1px solid var(--line); }
+.level-heading > div { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.level-heading strong { font-size:11px; font-weight:600; }
+.level-heading small { font-size:10px; color:var(--muted); }
+.level-connections { margin-top:6px; }
+.level-connections button { border:0; border-radius:4px; padding:3px 5px; font:inherit; font-size:10px; line-height:1.2; color:var(--purple); background:var(--purple-soft); cursor:pointer; white-space:nowrap; }
+.level-connections button:disabled { color:var(--muted); background:transparent; opacity:.55; cursor:default; }
+.level-connections button:focus-visible, .level-scroller:focus-visible { outline:2px solid var(--purple); outline-offset:-2px; }
+.level-scroller { position:relative; height:calc(100% - 64px); overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; }
+.level-scroller.vertical-flow { overflow-x:auto; overflow-y:hidden; }
+.level-content { position:relative; }
+.levels-edges { z-index:2; }
+.empty { padding:24px; color:var(--muted); font-size:12px; }
+
+.levels-viewport { position:relative; overflow:auto; background:var(--panel); }
+.levels-track { transform-origin:0 0; }
+.graph-zoom-frame { position:relative; min-width:100%; min-height:100%; }

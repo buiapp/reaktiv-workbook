@@ -1,0 +1,4 @@
+include LICENSE
+include docs/PYTHON-PACKAGE.md
+recursive-include python/reaktiv_workbook/web *
+recursive-include python/reaktiv_workbook/skills *.md

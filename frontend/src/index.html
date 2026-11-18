@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Reaktiv Workbook</title>
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <script src="startup.js"></script>
+    <link rel="stylesheet" href="startup.css" />
+    <script src="themes.js"></script>
+  </head>
+  <body>
+    <section id="startup-screen" role="region" aria-label="Application startup">
+      <div class="startup-card">
+        <h1 id="startup-title">Starting Reaktiv Workbook</h1>
+        <p id="startup-status" role="status">Loading application scripts…</p>
+        <p>If this window stays here, copy the diagnostics and include them in your bug report.</p>
+        <button id="startup-copy" type="button">Copy diagnostics</button>
+        <p id="startup-copy-status" role="status"></p>
+        <details id="startup-details"><summary>Startup diagnostics</summary>
+          <textarea id="startup-report" readonly aria-label="Startup diagnostics report"></textarea>
+        </details>
+      </div>
+    </section>
+    <app-root></app-root>
+  </body>
+</html>

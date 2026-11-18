@@ -1,0 +1,1766 @@
+@import 'prosekit/basic/style.css';
+@import 'prosekit/basic/typography.css';
+@import 'katex/dist/katex.min.css';
+
+/* Shared theme roles keep original light/dark defaults. Named palettes override
+   --theme-* colours; data-theme selects the matching scheme for native controls. */
+:root {
+  --ink: var(--theme-ink, light-dark(#1d1d1b, #e7e7e2));
+  --muted: var(--theme-muted, light-dark(#7a7a73, #8f8f88));
+  --line: var(--theme-line, light-dark(#e9e8e3, #292926));
+  --line-strong: var(--theme-line-strong, light-dark(#d7d6d0, #3a3a36));
+  --paper: var(--theme-paper, light-dark(#fdfdfb, #161614));
+  --panel: var(--theme-panel, light-dark(#f6f5f1, #1c1c1a));
+  --lime: var(--theme-lime, light-dark(#c7f36b, #242e11));
+  --lime-dark: var(--theme-lime-dark, light-dark(#3c5c09, #96ba71));
+  --purple: var(--theme-purple, light-dark(#7157d9, #8975f2));
+  --purple-soft: var(--theme-purple-soft, light-dark(#eeeafd, #1e1c24));
+  --orange: var(--theme-orange, light-dark(#f4a259, #7d3900));
+  --orange-soft: var(--theme-orange-soft, light-dark(#fff0e3, #1c1611));
+  --danger: var(--theme-danger, light-dark(#ba3f3f, #dc6460));
+  --hover: var(--theme-hover, light-dark(#eeede8, #252522));
+  --selected: var(--theme-selected, light-dark(#e8e7e1, #2c2c28));
+  color-scheme: light dark;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  color: var(--theme-ink, light-dark(#20231f, #daddd9));
+  background: var(--theme-paper, light-dark(#fbfcf9, #0c0d0c));
+}
+
+app-root .settings-dialog.getting-started-dialog {
+  width: min(720px, calc(100vw - 56px));
+}
+
+.dialog-intro {
+  max-width: 620px;
+  margin: -5px 0 20px;
+  color: var(--theme-muted, light-dark(#596056, #9ca299));
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.concept-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.concept-grid article {
+  display: flex;
+  gap: 11px;
+  min-height: 88px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--theme-panel, light-dark(#f8faf6, #10100f));
+}
+
+.concept-grid article > app-ui-icon {
+  width: 22px;
+  height: 22px;
+  flex-basis: 22px;
+  color: var(--theme-purple, light-dark(#5b469f, #a595f0));
+}
+
+.concept-grid strong,
+.concept-grid span,
+.template-options strong,
+.template-options small {
+  display: block;
+}
+
+.concept-grid strong {
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.concept-grid span {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.getting-started-tip {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-left: 3px solid light-dark(#8fb83b, #486a00);
+  border-radius: 4px 8px 8px 4px;
+  background: light-dark(#f1f8e4, #14170f);
+  font-size: 11px;
+}
+
+.getting-started-tip span,
+.template-options small {
+  color: var(--theme-muted, light-dark(#596056, #9ca299));
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+/* Dialog actions stay in view: the footer sticks to the bottom of a dialog that scrolls
+   (small windows), so "Create", "Save", or "Cancel" never hide below the fold. */
+.settings-dialog > .dialog-footer,
+.settings-dialog form > .dialog-footer,
+.settings-dialog > .settings-actions {
+  position: sticky;
+  z-index: 2;
+  bottom: -22px;
+  margin-inline: -22px;
+  margin-bottom: -22px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--theme-line, light-dark(#e3e6de, #2b2e28));
+  background: var(--theme-paper, light-dark(#fdfdfb, #161614));
+}
+
+/* Short windows: the welcome guide drops its tip and tightens its cards. */
+@media (max-height: 780px) {
+  app-root .getting-started-tip {
+    display: none;
+  }
+  app-root .concept-grid article {
+    min-height: 0;
+    padding: 10px 12px;
+  }
+  app-root .dialog-intro {
+    margin-bottom: 12px;
+  }
+}
+@media (max-height: 620px) {
+  app-root .getting-started-dialog .concept-grid {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  /* Phones: the guide leads with the examples and the actions. */
+  app-root .getting-started-dialog .concept-grid {
+    display: none;
+  }
+  app-root .settings-dialog > .dialog-footer,
+  app-root .settings-dialog > .settings-actions {
+    flex-wrap: wrap;
+  }
+  app-root .settings-dialog > .dialog-footer > button,
+  app-root .settings-dialog > .settings-actions > button {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+  /* Note widgets: the label above the control, so the slider keeps its width. */
+  .sheet-widget-node .sheet-widget {
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .sheet-widget-node .sheet-widget > span:first-child {
+    flex: 1 0 100%;
+  }
+}
+
+.template-options {
+  display: grid;
+  gap: 7px;
+  margin: 6px 0 16px;
+}
+
+.template-options label {
+  display: grid;
+  grid-template-columns: 18px 20px minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  padding: 10px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--theme-panel, light-dark(#f8faf6, #10100f));
+  cursor: pointer;
+}
+
+.template-options label.selected {
+  border-color: light-dark(#9ab558, #506600);
+  background: var(--theme-lime, light-dark(#f0f8df, #15180e));
+  box-shadow: 0 0 0 2px rgb(199 243 107 / 18%);
+}
+
+.template-options input {
+  accent-color: var(--theme-purple, light-dark(#7157d9, #8975f2));
+}
+
+.template-options small {
+  margin-top: 2px;
+  font-size: 9px;
+}
+
+.grid-size-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.dialog-error {
+  margin: 10px 0 0;
+  color: var(--danger);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+body {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--theme-purple, light-dark(#7157d9, #8975f2));
+  outline-offset: 2px;
+}
+
+.markdown-content > :first-child {
+  margin-top: 0;
+}
+
+.markdown-content > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3 {
+  margin: 0.65em 0 0.35em;
+  line-height: 1.2;
+}
+
+.markdown-content h1 {
+  font-size: 1.35em;
+}
+
+.markdown-content h2 {
+  font-size: 1.2em;
+}
+
+.markdown-content h3 {
+  font-size: 1.08em;
+}
+
+.markdown-content p,
+.markdown-content ul,
+.markdown-content ol,
+.markdown-content blockquote,
+.markdown-content pre {
+  margin: 0.45em 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  padding-left: 1.4em;
+}
+
+.markdown-content blockquote {
+  padding-left: 0.8em;
+  border-left: 3px solid light-dark(#77b7ab, #36665d);
+  color: light-dark(#526d68, #869d99);
+}
+
+.markdown-content code {
+  padding: 0.12em 0.3em;
+  border-radius: 3px;
+  background: light-dark(#e8efec, #1b1e1d);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.markdown-content pre {
+  overflow: auto;
+  padding: 0.7em;
+  border-radius: 5px;
+  background: light-dark(#e8efec, #1b1e1d);
+}
+
+/* Long lines in code wrap (spaces kept, long words broken) instead of running past the note. */
+.markdown-content pre,
+.markdown-content code,
+.note-document .ProseMirror pre,
+.note-document .ProseMirror code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.markdown-content pre code {
+  padding: 0;
+}
+
+.markdown-content a {
+  color: light-dark(#5e48bc, #988afd);
+}
+
+.markdown-content table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.markdown-content th,
+.markdown-content td {
+  padding: 0.35em 0.5em;
+  border: 1px solid light-dark(#d5e0dc, #292e2c);
+  text-align: left;
+}
+
+.note-sidebar-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.note-sidebar-actions .primary-button {
+  flex: 1;
+}
+
+.note-save-hint {
+  line-height: 1.45;
+}
+
+.notes-empty {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  color: var(--muted);
+  text-align: center;
+}
+
+.notes-empty > span {
+  color: light-dark(#2d8578, #4b9a8d);
+  font-size: 42px;
+}
+
+.notes-empty h2 {
+  margin-bottom: 0;
+}
+
+.notes-empty p {
+  margin: 8px 0 18px;
+}
+
+.artifact-cell-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.artifact-file {
+  overflow: hidden;
+  color: light-dark(#40528d, #8fa5e3);
+  font-size: 10px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-inspector-preview {
+  display: block;
+  width: 100%;
+  max-height: 280px;
+  margin-top: 9px;
+  border: 1px solid var(--theme-line, light-dark(#d9ddd5, #2d2f2b));
+  border-radius: 6px;
+  object-fit: contain;
+  background: var(--theme-paper, light-dark(white, #0c0c0c));
+}
+
+.artifact-meta {
+  color: var(--theme-muted, light-dark(#70756d, #898d87)) !important;
+}
+
+.artifact-download-button {
+  width: 100%;
+  margin-top: 9px;
+}
+
+.artifacts-panel {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  border-left: 1px solid light-dark(#c2c8be, #3f433d);
+  color: var(--theme-ink, light-dark(#20231f, #daddd9));
+  background: var(--theme-paper, light-dark(#fbfcf9, #0c0d0c));
+}
+
+.artifacts-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--theme-line, light-dark(#d9ddd5, #2d2f2b));
+}
+
+.artifacts-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.artifacts-heading span {
+  color: var(--theme-muted, light-dark(#70756d, #898d87));
+  font-size: 9px;
+}
+
+.artifacts-heading button,
+.artifact-card-details button,
+.artifact-card-download {
+  border: 0;
+  color: light-dark(#4e544b, #a8ada5);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.artifacts-heading button {
+  font-size: 20px;
+}
+
+.artifacts-list {
+  overflow: auto;
+  padding: 12px;
+}
+
+.artifact-card {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 9px;
+  padding: 9px;
+  border: 1px solid var(--theme-line, light-dark(#d9ddd5, #2d2f2b));
+  border-radius: 8px;
+  background: var(--theme-paper, light-dark(white, #0c0c0c));
+}
+
+.artifact-card img,
+.artifact-file-icon {
+  width: 82px;
+  height: 62px;
+  border-radius: 5px;
+  object-fit: contain;
+  background: light-dark(#f3f5f0, #161615);
+}
+
+.artifact-file-icon {
+  display: grid;
+  place-items: center;
+  color: light-dark(#5968bd, #7687da);
+  font-size: 24px;
+}
+
+.artifact-card-details {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.artifact-card-details button {
+  overflow: hidden;
+  padding: 0;
+  color: light-dark(#40528d, #8fa5e3);
+  font-size: 11px;
+  font-weight: 800;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.artifact-card-details span {
+  color: var(--theme-muted, light-dark(#70756d, #898d87));
+  font-size: 9px;
+}
+
+.artifact-card-download {
+  padding: 6px 8px;
+  border: 1px solid light-dark(#c2c8be, #3f433d);
+  border-radius: 5px;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+/* Tabular values (DataFrame, Series, records) rendered by data-table.ts. Global so the
+   styles apply inside [innerHTML] content in notes and the inspector. */
+.data-table {
+  margin: 10px 0;
+  font-size: 12px;
+}
+.data-table-scroll {
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid var(--theme-line, light-dark(#d9ddd5, #2d2f2b));
+  border-radius: 7px;
+}
+.data-table table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.data-table th,
+.data-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid light-dark(#e8ebe4, #232521);
+  text-align: left;
+  white-space: nowrap;
+}
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: light-dark(#4e544b, #b9bdb5);
+  background: light-dark(#f3f5f0, #1b1c1a);
+  font-weight: 700;
+}
+.data-table th.index {
+  color: var(--theme-muted, light-dark(#70756d, #898d87));
+  background: light-dark(#f7f8f5, #161715);
+  font-weight: 600;
+}
+.data-table thead th.index {
+  z-index: 2;
+}
+.data-table .numeric {
+  text-align: right;
+}
+.data-table tbody tr:hover td {
+  background: light-dark(#f5f8ef, #1e211b);
+}
+.data-table .missing {
+  color: light-dark(#aeb5aa, #5b6058);
+}
+.data-table figcaption {
+  margin-top: 5px;
+  color: var(--theme-muted, light-dark(#70756d, #898d87));
+  font-size: 11px;
+}
+
+/* Printing notes (App.printNotes): only the rendered notes in .print-root are printed. */
+.print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 18mm 16mm;
+  }
+
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body,
+  .app-shell {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  .app-shell > :not(.print-root) {
+    display: none !important;
+  }
+
+  .print-root {
+    display: block;
+    color: #1d1d1b;
+    font-size: 11pt;
+    line-height: 1.6;
+  }
+
+  .print-note + .print-note {
+    break-before: page;
+  }
+
+  .print-root img,
+  .print-root table,
+  .print-root pre {
+    break-inside: avoid;
+  }
+
+  .print-root img {
+    max-width: 100%;
+  }
+}
+
+/* ── Note page editor (prosekit-block-editor + note-nodes.ts) ─────────────────
+   One continuous document per note, styled like the rendered page. Global because
+   ProseMirror creates this DOM, not an Angular template. */
+.note-document .ProseMirror {
+  min-height: 50vh;
+  padding: 0 0 30vh;
+  outline: none;
+  color: light-dark(#262624, #e4e4df);
+  font-size: 16.5px;
+  line-height: 1.72;
+  caret-color: var(--theme-purple, light-dark(#7157d9, #8975f2));
+}
+
+.note-document .ProseMirror > :first-child {
+  margin-top: 0;
+}
+
+.note-document .ProseMirror h1 {
+  margin: 0.2em 0 0.35em;
+  font-size: 2.05em;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+}
+
+.note-document .ProseMirror h2 {
+  margin: 1.1em 0 0.25em;
+  font-size: 1.4em;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.note-document .ProseMirror h3 {
+  margin: 1em 0 0.2em;
+  font-size: 1.15em;
+  font-weight: 650;
+}
+
+.note-document .ProseMirror p,
+.note-document .ProseMirror blockquote {
+  margin: 0.35em 0;
+}
+
+.note-document .ProseMirror blockquote {
+  padding-left: 1em;
+  border-left: 3px solid var(--theme-line, light-dark(#e3e2dc, #33332f));
+  color: light-dark(#5f5f59, #a6a69f);
+}
+
+.note-document .ProseMirror code {
+  padding: 0.12em 0.3em;
+  border-radius: 4px;
+  background: light-dark(#edf0ea, #1b1c1a);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86em;
+}
+
+.note-document .ProseMirror pre {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--theme-panel, light-dark(#f4f4f0, #1b1c1a));
+}
+
+.note-document .ProseMirror pre code {
+  padding: 0;
+  background: none;
+}
+
+.note-document .ProseMirror a {
+  color: light-dark(#5e48bc, #988afd);
+  text-decoration-color: light-dark(#a99be6, #5e5091);
+  text-underline-offset: 2px;
+}
+
+.note-document .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+.note-document .ProseMirror table {
+  border-collapse: collapse;
+  font-size: 0.92em;
+}
+
+.note-document .ProseMirror th,
+.note-document .ProseMirror td {
+  padding: 0.3em 0.8em;
+  border: 1px solid var(--theme-line, light-dark(#ecebe6, #2a2a27));
+}
+
+.note-document .ProseMirror .prosekit-placeholder::before,
+.note-document .ProseMirror [data-placeholder]::before {
+  color: light-dark(#b3b3ac, #5c5c57);
+}
+
+/* Jumping to a heading from the table of contents leaves room for the sticky toolbar. */
+.note-document .ProseMirror :is(h1, h2, h3, h4) {
+  scroll-margin-top: 66px;
+}
+
+/* "Show cell" menu of a live value (note-nodes.ts). */
+.cell-popover {
+  position: fixed;
+  z-index: 70;
+  display: grid;
+  min-width: 190px;
+  max-width: min(380px, calc(100vw - 16px));
+  gap: 1px;
+  padding: 6px;
+  border: 1px solid var(--theme-line, light-dark(#e9e8e3, #292926));
+  border-radius: 10px;
+  background: var(--theme-paper, light-dark(#fdfdfb, #161614));
+  box-shadow:
+    0 12px 32px rgb(0 0 0 / 12%),
+    0 2px 6px rgb(0 0 0 / 6%);
+  font-size: 12.5px;
+}
+
+.cell-popover-title {
+  padding: 2px 8px 4px;
+  color: var(--theme-muted, light-dark(#8a8a83, #7f7f78));
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cell-popover button {
+  display: flex;
+  min-width: 0;
+  min-height: 30px;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--theme-ink, light-dark(#1d1d1b, #e7e7e2));
+  background: transparent;
+  font: inherit;
+  text-align: left;
+}
+
+.cell-popover button:hover,
+.cell-popover button:focus-visible {
+  background: light-dark(#f2effd, #221f2f);
+}
+
+.cell-popover button > span:not(.cell-popover-arrow) {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+  color: light-dark(#6f6f69, #9a9a93);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cell-popover-arrow {
+  color: light-dark(#4b36a8, #b7adff);
+}
+
+/* ‹ › next to sliders, in notes and grid tiles. */
+.widget-step {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  place-items: center;
+  padding: 0;
+  border: 1px solid light-dark(#cfd6c8, #3a3f36);
+  border-radius: 5px;
+  color: light-dark(#4b5148, #b8beb4);
+  background: var(--theme-paper, light-dark(white, #0c0c0c));
+  font: 700 14px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.widget-step:hover:not(:disabled) {
+  border-color: var(--theme-purple, light-dark(#7157d9, #8975f2));
+  color: var(--theme-purple, light-dark(#5b469f, #a595f0));
+}
+.widget-step:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Syntax highlighting (code-highlight.ts): Shiki writes both colours, the theme picks one. */
+.shiki-token {
+  color: light-dark(var(--shiki-light), var(--shiki-dark));
+}
+
+/* Code blocks in the note editor: a language picker in the corner. */
+.note-document .code-block-node {
+  position: relative;
+}
+/* Room for the picker, so long first lines never run under it. */
+.note-document .code-block-node pre {
+  padding-top: 28px;
+}
+.note-document .code-block-node .code-language {
+  position: absolute;
+  z-index: 1;
+  top: 6px;
+  right: 8px;
+  max-width: 150px;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--theme-muted, light-dark(#8a8a83, #7f7f78));
+  background: transparent;
+  font: 500 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  opacity: 0.75;
+}
+.note-document .code-block-node:hover .code-language,
+.note-document .code-block-node .code-language:focus {
+  border-color: var(--theme-line, light-dark(#e3e2dc, #33332f));
+  background: var(--theme-paper, light-dark(#fdfdfb, #161614));
+  opacity: 1;
+}
+
+/* Rich input widgets (input-widgets.ts): list, multiple choice, long text, button —
+   the same markup in notes and in grid tiles. */
+.rich-widget {
+  --rw-line: light-dark(#bcc7b5, #40473b);
+  --rw-accent: var(--theme-purple, light-dark(#7157d9, #8975f2));
+  font-size: 12px;
+}
+
+.rich-widget input[type='text'],
+.rich-widget textarea {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--rw-line);
+  border-radius: 5px;
+  color: inherit;
+  background: var(--theme-paper, light-dark(white, #0c0c0c));
+  font: inherit;
+  font-weight: 500;
+}
+
+.rich-widget textarea {
+  display: block;
+  width: 100%;
+  min-height: 62px;
+  resize: vertical;
+}
+
+.rich-widget button {
+  min-height: 28px;
+  padding: 0 11px;
+  border: 1px solid var(--rw-line);
+  border-radius: 5px;
+  color: inherit;
+  background: var(--theme-paper, light-dark(white, #0c0c0c));
+  font: inherit;
+  font-weight: 650;
+}
+
+.rich-widget button:hover:not(:disabled) {
+  border-color: var(--rw-accent);
+}
+
+.rich-widget .rw-button {
+  border-color: var(--rw-accent);
+  color: light-dark(white, #111);
+  background: var(--rw-accent);
+}
+
+.rich-widget .rw-list ul {
+  display: grid;
+  gap: 3px;
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.rich-widget .rw-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 3px 4px 3px 9px;
+  border-radius: 5px;
+  background: light-dark(#eef2e8, #1b1d19);
+  font-weight: 500;
+}
+
+.rich-widget .rw-list li > span {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+  text-overflow: ellipsis;
+}
+
+.rich-widget .rw-list li.rw-empty,
+.rich-widget .rw-empty {
+  color: var(--theme-muted, light-dark(#8a8a83, #7f7f78));
+  background: transparent;
+  font-style: italic;
+  font-weight: 400;
+}
+
+.rich-widget .rw-remove {
+  min-height: 20px;
+  padding: 0 6px;
+  border: 0;
+  color: var(--theme-muted, light-dark(#8a8a83, #7f7f78));
+  background: transparent;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.rich-widget .rw-remove:hover:not(:disabled) {
+  color: var(--theme-danger, light-dark(#a13f3f, #dc7975));
+}
+
+.rich-widget .rw-add {
+  display: flex;
+  gap: 6px;
+}
+
+.rich-widget .rw-add input {
+  flex: 1;
+}
+
+.rich-widget .rw-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.rich-widget .rw-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 500;
+}
+
+.rich-widget .rw-options input {
+  flex: none;
+  accent-color: var(--rw-accent);
+}
+
+/* In a note: a card with its label on top (a button stands alone). */
+.sheet-widget-node .sheet-widget.rich-widget {
+  display: inline-grid;
+  width: min(420px, 100%);
+  gap: 6px;
+  align-items: stretch;
+}
+
+.sheet-widget-node .sheet-widget.rich-button {
+  width: auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.rich-widget-body {
+  display: block;
+  min-width: 0;
+}
+
+/* Live values: inline chips; plots, tables, and embedded notes take the full width. */
+.cell-value-node {
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.cell-value-node .live-value,
+.cell-value-node .missing-value,
+.cell-value-node .pending-value {
+  padding: 0.05em 0.35em;
+  border-radius: 4px;
+  color: light-dark(#4b36a8, #b7adff);
+  background: light-dark(#f2effd, #221f2f);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cell-value-node .missing-value {
+  color: light-dark(#963c3c, #df827e);
+  background: light-dark(#fff3f3, #171313);
+}
+
+.cell-value-node .pending-value {
+  color: var(--theme-muted, light-dark(#8b8b84, #7c7c76));
+}
+
+.cell-value-node.block-value {
+  display: block;
+  margin: 0.6em 0;
+}
+
+.cell-value-node .artifact-value {
+  display: block;
+}
+
+.cell-value-node .artifact-value img {
+  display: block;
+  max-width: 100%;
+  max-height: 520px;
+  border: 1px solid var(--theme-line, light-dark(#ecebe6, #2a2a27));
+  border-radius: 8px;
+}
+
+.cell-value-node .artifact-value img[width] {
+  max-height: none;
+}
+
+.cell-value-node .note-embed {
+  margin: 0;
+  padding: 0.2em 1em;
+  border-left: 3px solid light-dark(#cfc6f4, #3c3653);
+}
+
+.cell-value-node.selected,
+.sheet-widget-node.selected {
+  outline: 2px solid var(--theme-purple, light-dark(#7157d9, #8975f2));
+  outline-offset: 2px;
+}
+
+/* Input widgets inside notes. */
+.sheet-widget-node .sheet-widget {
+  display: inline-flex;
+  min-width: min(320px, 100%);
+  gap: 9px;
+  align-items: center;
+  margin: 0.2em 0.35em 0.2em 0;
+  padding: 7px 10px;
+  border: 1px solid light-dark(#d4dccb, #2f322b);
+  border-radius: 8px;
+  color: light-dark(#30382c, #c3cbbf);
+  background: light-dark(#f7faf3, #10110f);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+.sheet-widget-node .sheet-widget > span:first-child {
+  min-width: 88px;
+}
+
+.sheet-widget-node input,
+.sheet-widget-node select {
+  min-width: 0;
+  flex: 1;
+  accent-color: var(--theme-purple, light-dark(#7157d9, #8975f2));
+}
+
+.sheet-widget-node input[type='number'],
+.sheet-widget-node input[type='text'],
+.sheet-widget-node select {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid light-dark(#bcc7b5, #40473b);
+  border-radius: 5px;
+  background: var(--theme-paper, light-dark(white, #0c0c0c));
+  font: inherit;
+}
+
+.sheet-widget-node .widget-value {
+  min-width: 54px;
+  color: var(--theme-purple, light-dark(#5b469f, #a595f0));
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Block handle (hover a block: drag ⋮⋮ or add +), drop indicator, selection toolbar. */
+.block-handle-popup {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  color: light-dark(#a3a39c, #5f5f59);
+}
+
+.block-handle-add,
+.block-handle-draggable {
+  display: grid;
+  width: 22px;
+  height: 24px;
+  place-items: center;
+  border-radius: 5px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.block-handle-draggable {
+  letter-spacing: -3px;
+  cursor: grab;
+}
+
+.block-handle-add:hover,
+.block-handle-draggable:hover {
+  color: light-dark(#3f3f3a, #c9c9c3);
+  background: light-dark(#efeee9, #262623);
+}
+
+.drop-indicator {
+  background: var(--theme-purple, light-dark(#7157d9, #8975f2));
+}
+
+.inline-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid light-dark(#dcdcd5, #33332f);
+  border-radius: 8px;
+  background: light-dark(#fff, #1b1b19);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 14%);
+}
+
+.inline-toolbar button {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 5px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.inline-toolbar button:hover {
+  background: light-dark(#efeee9, #262623);
+}
+
+.inline-toolbar code {
+  font-size: 11px;
+}
+
+.inline-toolbar .toolbar-divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--theme-line, light-dark(#e3e2dc, #33332f));
+}
+
+/* Interactive Plotly charts (plotly-figure.ts). */
+.cell-value-node .plotly-value {
+  min-height: 360px;
+  border: 1px solid var(--theme-line, light-dark(#ecebe6, #2a2a27));
+  border-radius: 8px;
+}
+
+.plotly-placeholder {
+  display: inline-block;
+  padding: 0.3em 0.6em;
+  border-radius: 6px;
+  color: light-dark(#6b6b65, #9a9a93);
+  background: var(--theme-panel, light-dark(#f4f4f0, #1b1c1a));
+  font-size: 0.9em;
+}
+
+/* Wide and full-width blocks in notes (Width in a value's or image's context menu): wider
+   than the 760px text column, centred on it, sized against the note area (.note-column is
+   a size container). The note zoom is divided out, as the container is outside the zoom. */
+.note-column .cell-value-node.layout-wide,
+.note-column .cell-value-node.layout-full,
+.note-column img[data-layout='wide'],
+.note-column img[data-layout='full'] {
+  --layout-width: min(1080px, calc((100cqw - 48px) / var(--note-zoom, 1)));
+  position: relative;
+  display: block;
+  width: max(100%, var(--layout-width));
+  max-width: none;
+  margin-left: calc((100% - max(100%, var(--layout-width))) / 2);
+}
+.note-column .cell-value-node.layout-full,
+.note-column img[data-layout='full'] {
+  --layout-width: calc((100cqw - 48px) / var(--note-zoom, 1));
+}
+.note-column img[data-layout='wide'],
+.note-column img[data-layout='full'] {
+  height: auto;
+}
+
+/* Normal · Wide · Full on block values while editing (note-nodes.ts). */
+.cell-value-node.block-value {
+  position: relative;
+}
+.cell-value-node .layout-toolbar {
+  position: absolute;
+  top: -13px;
+  right: 6px;
+  z-index: 3;
+  display: none;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid light-dark(#d9ddd5, #33352f);
+  border-radius: 7px;
+  background: light-dark(#fff, #1b1c1a);
+  box-shadow: 0 2px 8px light-dark(#0000001a, #00000066);
+  font: 600 11px/1 system-ui, sans-serif;
+}
+.cell-value-node.block-value:hover > .layout-toolbar,
+.cell-value-node.block-value:focus-within > .layout-toolbar {
+  display: flex;
+}
+.layout-toolbar button,
+.reference-presentation {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 5px;
+  color: light-dark(#4e554b, #b9bdb5);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.layout-toolbar button:hover,
+.reference-presentation:hover {
+  background: light-dark(#f2f4ef, #262824);
+}
+.layout-toolbar button[aria-pressed='true'] {
+  color: light-dark(#fff, #10120f);
+  background: light-dark(#4a5145, #d8ddd3);
+}
+
+/* HTML output (html-output.ts) inside notes: a block, no frame; the output styles itself. */
+.cell-value-node .html-value {
+  margin: 0.4em 0;
+  white-space: normal;
+}
+
+/* anywidget views (anywidget-view.ts) inside notes. */
+.cell-value-node .anywidget-value {
+  padding: 6px 8px;
+  border: 1px solid var(--theme-line, light-dark(#ecebe6, #2a2a27));
+  border-radius: 8px;
+}
+
+.anywidget-notice {
+  padding: 6px 8px;
+  color: light-dark(#963c3c, #df827e);
+  font-size: 12px;
+}
+
+/* LaTeX math (KaTeX; markdown-math.ts). */
+.math-block {
+  overflow-x: auto;
+  margin: 0.6em 0;
+  text-align: center;
+}
+
+.math-node {
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.math-node.selected {
+  outline: 2px solid var(--theme-purple, light-dark(#7157d9, #8975f2));
+  outline-offset: 2px;
+}
+
+.math-node .katex-error {
+  color: var(--theme-danger, light-dark(#a13f3f, #dc7975));
+}
+
+.math-pending {
+  color: var(--theme-muted, light-dark(#8b8b84, #7c7c76));
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+
+/* Mermaid diagrams (markdown-mermaid.ts). */
+.mermaid-diagram,
+.mermaid-node {
+  overflow-x: auto;
+  margin: 0.6em 0;
+  text-align: center;
+}
+
+.mermaid-diagram svg,
+.mermaid-node svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-node {
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.mermaid-node.selected {
+  outline: 2px solid var(--theme-purple, light-dark(#7157d9, #8975f2));
+  outline-offset: 2px;
+}
+
+.mermaid-pending {
+  color: var(--theme-muted, light-dark(#8b8b84, #7c7c76));
+  text-align: left;
+}
+
+.mermaid-error {
+  color: var(--theme-danger, light-dark(#a13f3f, #dc7975));
+  font-size: 12px;
+  text-align: left;
+  white-space: pre-wrap;
+}
+
+/* Note typography must not leak into diagram labels: Mermaid sized them at 16px, with
+   normal whitespace (the editor's pre-wrap would make spaces in label HTML visible). */
+.mermaid-diagram svg,
+.mermaid-node svg {
+  font-size: 16px;
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.mermaid-diagram svg p,
+.mermaid-node svg p,
+.note-document .ProseMirror .mermaid-node svg p {
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+/* Cell activity (cell-activity.ts): pending cells fade,
+   the running cell pulses. Both wait 150 ms, so fast updates never flicker; leaving the
+   state is instant (the transition is only on the state). */
+:root {
+  --activity: var(--theme-purple, light-dark(#7157d9, #8975f2));
+}
+
+.sheet-cell.pending > *,
+.cell-value-node.cell-pending {
+  opacity: 0.45;
+  transition: opacity 160ms ease 150ms;
+}
+
+/* An outline that pulses and a bar that sweeps along the bottom edge. */
+.sheet-cell.running::before {
+  position: absolute;
+  z-index: 7;
+  border: 2px solid var(--activity);
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, var(--activity), transparent) no-repeat;
+  background-position: -60% 100%;
+  background-size: 45% 3px;
+  content: '';
+  pointer-events: none;
+  inset: 0;
+  animation:
+    cell-activity-wait 0s 150ms backwards,
+    cell-running 1.2s ease-in-out 150ms infinite,
+    cell-running-sweep 1.1s linear 150ms infinite;
+}
+
+.cell-value-node.cell-running {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  animation: cell-running-outline 1.2s ease-in-out 150ms infinite backwards;
+}
+
+/* Hidden while waiting (the 150 ms delay), then shown. */
+@keyframes cell-activity-wait {
+  from {
+    visibility: hidden;
+  }
+}
+
+@keyframes cell-running {
+  0%,
+  100% {
+    border-color: color-mix(in srgb, var(--activity) 55%, transparent);
+  }
+  50% {
+    border-color: var(--activity);
+  }
+}
+
+@keyframes cell-running-sweep {
+  to {
+    background-position: 160% 100%;
+  }
+}
+
+@keyframes cell-running-outline {
+  0%,
+  100% {
+    outline-color: transparent;
+  }
+  50% {
+    outline-color: var(--activity);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-cell.running::before {
+    background: none;
+    animation: none;
+  }
+  .cell-value-node.cell-running {
+    outline-color: var(--activity);
+    animation: none;
+  }
+}
+
+/* A cell with unapplied edits (cell drafts): a dashed outline, like a draft. The
+   selected cell's own outline wins; the inspector says it holds a draft. */
+.sheet-cell.drafted:not(.selected) {
+  outline: 2px dashed light-dark(#d08a00, #e6a73a);
+  outline-offset: -3px;
+}
+
+/* Resampled charts: how many of the points are shown. */
+.plotly-resample-note {
+  position: absolute;
+  right: 8px;
+  bottom: 2px;
+  z-index: 2;
+  padding: 0 4px;
+  border-radius: 4px;
+  color: var(--theme-muted, light-dark(#7a7a73, #8f8f88));
+  background: light-dark(rgb(253 253 251 / 80%), rgb(22 22 20 / 80%));
+  font-size: 10.5px;
+  pointer-events: none;
+}
+
+/* Git: the branch button and the Changes panel. */
+.git-button small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.git-button {
+  position: relative;
+}
+/* Uncommitted changes: a dot on the branch icon (it stays visible when labels are hidden). */
+.git-button.has-changes::after {
+  position: absolute;
+  top: 6px;
+  left: 18px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: light-dark(#d08a00, #e6a73a);
+  content: '';
+}
+/* The settings dialog's width (component styles) is narrower; the diff needs room. */
+section.settings-dialog.git-dialog {
+  min-width: 0;
+  width: min(760px, calc(100vw - 56px));
+}
+.git-workbook-changes {
+  margin: 4px 0 10px;
+  color: var(--muted);
+}
+.git-cell-changes {
+  display: grid;
+  /* Long preformatted lines must not set the grid track's minimum width. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.git-change {
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.git-change-heading {
+  overflow-wrap: anywhere;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.git-change-heading .text-button {
+  min-width: 0;
+  white-space: normal;
+  text-align: left;
+}
+.git-change-heading .field-hint {
+  display: inline;
+  margin: 0;
+}
+.git-change-kind {
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: light-dark(#4d534a, #b9bfb6);
+  background: light-dark(#eef0ea, #23251f);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.git-change.added .git-change-kind {
+  color: light-dark(#2f6b12, #a7d77d);
+  background: light-dark(#e3f2d3, #1f3110);
+}
+.git-change.removed .git-change-kind {
+  color: light-dark(#a1302a, #f0a19b);
+  background: light-dark(#fbe5e3, #3a1715);
+}
+.git-lines,
+.git-text-diff pre {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  max-height: 260px;
+  margin: 6px 0 0;
+  overflow: auto;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--theme-panel, light-dark(#f7f8f5, #121211));
+  font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre;
+}
+.git-lines .added {
+  color: light-dark(#2f6b12, #a7d77d);
+  background: light-dark(#eaf6df, #1a2a0e);
+}
+.git-lines .removed {
+  color: light-dark(#a1302a, #f0a19b);
+  background: light-dark(#fcebe9, #2c1312);
+}
+.git-lines .same {
+  color: var(--muted);
+}
+.git-text-diff {
+  margin-top: 10px;
+}
+.git-text-diff summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+.commit-message {
+  resize: vertical;
+}
+.git-message {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* Type checking: the hint field, the findings of the selected
+   cell, the status bar entry, and a blue corner on cells with findings. */
+.type-hint-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+}
+.type-findings {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+}
+.type-findings li {
+  padding: 5px 8px;
+  border-left: 3px solid light-dark(#3a6fd8, #7ea2f0);
+  border-radius: 4px;
+  background: light-dark(#eef3fd, #172036);
+}
+.type-findings li.warning {
+  border-left-color: light-dark(#c98a00, #e6b24a);
+  background: light-dark(#fdf6e6, #2b2210);
+}
+.type-finding-line {
+  margin-right: 6px;
+  color: light-dark(#5e645b, #989e96);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.status-types {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.status-types.has-findings {
+  color: light-dark(#2a5bc4, #8db4ff);
+  font-weight: 650;
+}
+.sheet-cell.type-finding::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  border-top: 7px solid light-dark(#3a6fd8, #7ea2f0);
+  border-right: 7px solid transparent;
+  content: '';
+  pointer-events: none;
+}
+
+@import "./workspace-panes.scss";
+
+/* Keep the track and readout stable while digits and linked state change. */
+.sheet-widget-node { position: relative; display: inline-block; max-width: 100%; vertical-align: middle; }
+.sheet-widget-node .sheet-widget { box-sizing: border-box; max-width: 100%; }
+.sheet-widget-node:has(> .range-widget) { width: min(460px, 100%); container: range-input / inline-size; }
+.sheet-widget-node .range-widget {
+  width: calc(100% - .35em);
+  min-width: 0;
+  box-sizing: border-box;
+}
+.sheet-widget-node .range-widget > span:first-child { flex: 0 0 88px; min-width: 0; overflow-wrap: anywhere; }
+.sheet-widget-node .range-widget input { flex: 1 1 0; width: 0; }
+.sheet-widget-node .range-widget .widget-value {
+  flex: 0 0 12ch;
+  width: 12ch;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sheet-widget-node.linked-widget .sheet-widget { padding-right: 38px; }
+app-root .sheet-widget-node > .linked-reset {
+  position: absolute;
+  top: calc(.2em + 3px);
+  right: calc(.35em + 3px);
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: var(--theme-purple, light-dark(#7157d9, #8975f2));
+  background: transparent;
+  cursor: pointer;
+}
+app-root .sheet-widget-node > .linked-reset:hover { background: light-dark(#eee9fa, #272134); }
+app-root .sheet-widget-node > .linked-reset:disabled { opacity: .5; cursor: default; }
+@media (max-width: 640px) {
+  .sheet-widget-node .range-widget > span:first-child { flex: 1 0 100%; }
+}
+@media (pointer: coarse) {
+  .sheet-widget-node.linked-widget .sheet-widget { padding-right: 52px; min-height: 54px; }
+  app-root .sheet-widget-node > .linked-reset { width: 44px; height: 44px; }
+}
+
+/* Narrow note panes need the full second row for the track, even on desktop. */
+@container range-input (max-width: 400px) {
+  .sheet-widget-node .range-widget {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) 24px;
+    gap: 6px;
+  }
+  .sheet-widget-node.linked-widget .range-widget { padding-right: 10px; }
+  .sheet-widget-node .range-widget > span:first-child {
+    grid-area: 1 / 1 / 2 / 4;
+    display: flex;
+    align-items: center;
+    min-height: 22px;
+    padding-right: min(60%, 12ch);
+  }
+  .sheet-widget-node.linked-widget .range-widget > span:first-child { padding-right: min(60%, calc(12ch + 28px)); }
+  .sheet-widget-node .range-widget .widget-value { grid-area: 1 / 1 / 2 / 4; justify-self: end; max-width: 60%; }
+  .sheet-widget-node.linked-widget .range-widget .widget-value { margin-right: 28px; max-width: calc(60% - 28px); }
+  .sheet-widget-node .range-widget input { grid-area: 2 / 2 / 3 / 3; width: 100%; }
+  .sheet-widget-node .range-widget .widget-step { grid-row: 2; }
+  .sheet-widget-node .range-widget .widget-step:first-of-type { grid-column: 1; }
+  .sheet-widget-node .range-widget .widget-step:last-of-type { grid-column: 3; }
+  @media (pointer: coarse) {
+    .sheet-widget-node.linked-widget .range-widget > span:first-child { min-height: 38px; padding-right: min(65%, calc(12ch + 44px)); }
+    .sheet-widget-node.linked-widget .range-widget .widget-value { margin-right: 44px; max-width: calc(65% - 44px); }
+  }
+}
+
+@import "./graph-navigation.scss";
+
+
+/* Built-in widget state is shared by notes and cells. */
+.rw-button[aria-pressed="true"] {
+  background: light-dark(#e7edf8, #283651);
+  border-color: light-dark(#879bbd, #647da6);
+}
+.rw-loading::before { content: '◌'; margin-inline-end: .45em; }
+.rw-unavailable { opacity: .65; }
+.widget-config-error { color: light-dark(#a43b30, #ef9488); font-size: .8rem; }
+.widget-state-settings summary { cursor: pointer; margin-block: .7rem; }
+.tile-widget-label { font-size: .8rem; }
+
+.sheet-widget-node[hidden], .rich-widget[hidden], .tile-widget[hidden] { display: none !important; }
+
+/* Action links remain ordinary Markdown links in exported notes. */
+.note-page a[href^="#sheet-action:"], .markdown-cell a[href^="#sheet-action:"] { display:inline-flex; align-items:center; padding:6px 12px; border-radius:6px; border:1px solid light-dark(#d5cee8,#514465); background:light-dark(#eee8fc,#332847); color:light-dark(#5632a3,#d7c2ff); text-decoration:none; font-weight:500; }
+
+.rw-action-error {display:block;margin-top:6px;font-size:12px;color:light-dark(#b32b2b,#ff9c9c);overflow-wrap:anywhere;}
+
+@import "./workspace-interactions.scss";
+
+/* Shared file/folder controls in Notes and worksheet tiles. */
+.rich-widget .rw-path { display: flex; flex-direction: column; gap: 4px; min-width: 0; width: 100%; }
+.rich-widget .rw-path-row { display: flex; gap: 6px; min-width: 0; }
+.rich-widget .rw-path-row input { flex: 1; min-width: 0; width: 0; }
+.rich-widget .rw-path-row button { flex: none; white-space: nowrap; }
+.rich-widget .rw-path-hint { color: var(--muted); font-size: 10px; line-height: 1.3; }
+
+/* File/folder picker of CLI sessions (path-browser.ts). */
+dialog.path-browser { font-size: 13px; width: min(560px, 92vw); max-height: 80vh; padding: 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--panel); color: inherit; display: flex; flex-direction: column; gap: 8px; }
+dialog.path-browser:not([open]) { display: none; }
+dialog.path-browser::backdrop { background: rgb(0 0 0 / 30%); }
+dialog.path-browser h2 { margin: 0; font-size: 14px; }
+.path-browser-location { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.path-browser-current { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; color: var(--muted); }
+.path-browser-list { list-style: none; margin: 0; padding: 0; overflow: auto; min-height: 180px; max-height: 50vh; border: 1px solid var(--line); border-radius: 6px; }
+.path-browser-list li { padding: 4px 8px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.path-browser-list li:hover, .path-browser-list li:focus-visible { background: var(--hover); outline: none; }
+.path-browser-list li[aria-selected="true"] { background: var(--selected); }
+.path-browser-list li[data-kind="folder"] { font-weight: 600; }
+.path-browser-status { margin: 0; min-height: 1.2em; color: var(--muted); font-size: 12px; }
+.path-browser-actions { display: flex; justify-content: flex-end; gap: 6px; }
+dialog.path-browser button { padding: 4px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+dialog.path-browser button:hover:not(:disabled) { background: var(--hover); }
+dialog.path-browser button:disabled { opacity: 0.5; cursor: default; }
+dialog.path-browser button.primary { background: var(--ink); border-color: transparent; color: var(--panel); }
+dialog.path-browser input[type=search] { padding: 5px 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: transparent; color: inherit; font: inherit; }
+
+:focus-visible { outline-color: var(--theme-focus, var(--theme-purple, light-dark(#7157d9, #8975f2))); }
+
+.theme-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+  label.secondary-button { display: inline-flex; align-items: center; position: relative; overflow: hidden; cursor: pointer; }
+  label.secondary-button:focus-within { outline: 2px solid var(--theme-focus, var(--purple)); outline-offset: 2px; }
+  input[type='file'] { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+}
+
+@import "./app/graph/graph-outputs.scss";
+
+@import './standalone-run.scss';
+@import "./view-chrome.scss";

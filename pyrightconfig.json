@@ -1,0 +1,13 @@
+{
+  "include": [
+    "python/reaktiv_workbook"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "python/reaktiv_workbook/web"
+  ],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "strict",
+  "reportMissingTypeStubs": false,
+  "reportUnnecessaryIsInstance": false
+}

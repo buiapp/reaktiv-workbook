@@ -1,0 +1,1100 @@
+{
+  "about": "Workbooks as the user types them. sheet-file.workbooks.spec.ts writes each with the app's writer to <name>.app.sheet.py; tests/python/test_workbook_files.py loads those files and requires every cell to come back as typed (or as in 'loads') with the same values.",
+  "cases": [
+    {
+      "name": "labels",
+      "about": "References by label in every Python context, and a note with a live value and a widget.",
+      "imports": [
+        "import asyncio"
+      ],
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "125000",
+          "name": "revenue"
+        },
+        {
+          "id": "A2",
+          "kind": "input",
+          "source": "0.18",
+          "name": "tax_rate"
+        },
+        {
+          "id": "A3",
+          "kind": "input",
+          "source": "[3, 5, 8]",
+          "name": "data"
+        },
+        {
+          "id": "B1",
+          "kind": "formula",
+          "source": "revenue * tax_rate",
+          "name": "tax"
+        },
+        {
+          "id": "B2",
+          "kind": "formula",
+          "source": "revenue - tax",
+          "name": "net"
+        },
+        {
+          "id": "B3",
+          "kind": "formula",
+          "source": "f\"{net:,.2f} of {revenue:,}\"",
+          "name": "net_text"
+        },
+        {
+          "id": "B4",
+          "kind": "formula",
+          "source": "[x * tax_rate for x in data]",
+          "name": "scaled"
+        },
+        {
+          "id": "B5",
+          "kind": "formula",
+          "source": "sorted(data, key=lambda value: -value * tax_rate)",
+          "name": "ranked"
+        },
+        {
+          "id": "B6",
+          "kind": "formula",
+          "source": "# Average with a floor\ntotal = sum(data)\nif total < tax_rate:\n    return 0\nreturn total / len(data)",
+          "name": "average"
+        },
+        {
+          "id": "B7",
+          "kind": "formula",
+          "source": "dict(revenue=revenue, rate=tax_rate)",
+          "name": "params"
+        },
+        {
+          "id": "B8",
+          "kind": "formula",
+          "source": "\"revenue\" + str(revenue)  # revenue in a comment",
+          "name": "labelled_text"
+        },
+        {
+          "id": "B9",
+          "kind": "formula",
+          "source": "revenue.real + data[0]",
+          "name": "parts"
+        },
+        {
+          "id": "C1",
+          "kind": "effect",
+          "source": "print(f\"net: {net}\")",
+          "trigger": "manual"
+        },
+        {
+          "id": "D1",
+          "kind": "markdown",
+          "source": "# Summary\n\nNet: **{{ net }}** of {{ revenue }}\n\n[Rate: {{ tax_rate }}](#sheet-input:tax_rate?type=range&min=0&max=1&step=0.01)",
+          "name": "summary"
+        },
+        {
+          "id": "E1",
+          "kind": "resource",
+          "source": "await asyncio.sleep(0)\nreturn {\"rate\": tax_rate}",
+          "name": "loaded"
+        },
+        {
+          "id": "E2",
+          "kind": "formula",
+          "source": "loaded[\"rate\"] * 2",
+          "name": "from_resource"
+        }
+      ]
+    },
+    {
+      "name": "locals",
+      "about": "Local names equal to labels: the local wins, and loading never changes what the code means.",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "2",
+          "name": "rate"
+        },
+        {
+          "id": "A2",
+          "kind": "input",
+          "source": "[1, 2]",
+          "name": "items"
+        },
+        {
+          "id": "B1",
+          "kind": "formula",
+          "source": "rate = 5\nreturn rate + A1"
+        },
+        {
+          "id": "B2",
+          "kind": "formula",
+          "source": "[rate for rate in range(3)]"
+        },
+        {
+          "id": "B3",
+          "kind": "formula",
+          "source": "def helper(values):\n    return len(values)\nreturn helper(items) * rate"
+        },
+        {
+          "id": "B4",
+          "kind": "formula",
+          "source": "for index, value in enumerate(items):\n    print(index, value)\nreturn rate"
+        },
+        {
+          "id": "B5",
+          "kind": "formula",
+          "source": "(total := rate * 2) + total"
+        }
+      ],
+      "loads": {
+        "B2": "[rate for rate in range(3)]"
+      }
+    },
+    {
+      "name": "coordinates",
+      "about": "Cells without labels are read by coordinate.",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "10"
+        },
+        {
+          "id": "A2",
+          "kind": "formula",
+          "source": "A1 * 2"
+        },
+        {
+          "id": "A3",
+          "kind": "formula",
+          "source": "A1 + A2"
+        },
+        {
+          "id": "B1",
+          "kind": "markdown",
+          "source": "Total: {{ A3 }}"
+        }
+      ]
+    },
+    {
+      "name": "sheets",
+      "about": "Labels are global; bare coordinates are the cell's own sheet; Sheet.A1 crosses sheets.",
+      "sheetName": "Main",
+      "sheets": [
+        {
+          "name": "Budget",
+          "grid": {
+            "columns": 4,
+            "rows": 4
+          },
+          "layout": {
+            "columnWidths": {},
+            "rowHeights": {}
+          }
+        },
+        {
+          "name": "Notes",
+          "grid": {
+            "columns": 4,
+            "rows": 4
+          },
+          "layout": {
+            "columnWidths": {},
+            "rowHeights": {}
+          }
+        }
+      ],
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "100",
+          "name": "income"
+        },
+        {
+          "id": "A2",
+          "kind": "formula",
+          "source": "Budget.A1 + Budget.B1"
+        },
+        {
+          "id": "Budget!A1",
+          "kind": "input",
+          "source": "30"
+        },
+        {
+          "id": "Budget!B1",
+          "kind": "formula",
+          "source": "A1 * 2"
+        },
+        {
+          "id": "Budget!C1",
+          "kind": "formula",
+          "source": "Main.income - Main.A2",
+          "name": "left"
+        },
+        {
+          "id": "Notes!A1",
+          "kind": "markdown",
+          "source": "Left: {{ Budget.left }} of {{ Main.income }}",
+          "name": "overview"
+        },
+        {
+          "id": "Notes!A2",
+          "kind": "markdown",
+          "source": "# Report\n\n{{ overview }}"
+        }
+      ]
+    },
+    {
+      "name": "functions",
+      "about": "Shared code and function cells.",
+      "code": "def double(x):\n    return x * 2",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "3",
+          "name": "base"
+        },
+        {
+          "id": "A2",
+          "kind": "formula",
+          "source": "def triple(x):\n    return x * 3",
+          "name": "triple"
+        },
+        {
+          "id": "A3",
+          "kind": "formula",
+          "source": "triple(double(base))",
+          "name": "result"
+        }
+      ]
+    },
+    {
+      "name": "types",
+      "about": "Type hints of formulas: the method's return annotation in the file.",
+      "imports": [
+        "import numpy as np"
+      ],
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "125000",
+          "name": "revenue"
+        },
+        {
+          "id": "A2",
+          "kind": "formula",
+          "source": "revenue * 0.2",
+          "name": "tax",
+          "annotation": "float"
+        },
+        {
+          "id": "A3",
+          "kind": "formula",
+          "source": "[revenue, tax]",
+          "name": "parts",
+          "annotation": "list[float]"
+        },
+        {
+          "id": "A4",
+          "kind": "formula",
+          "source": "np.array(parts)",
+          "name": "values",
+          "annotation": "np.ndarray"
+        },
+        {
+          "id": "A5",
+          "kind": "formula",
+          "source": "len(parts)"
+        }
+      ]
+    },
+    {
+      "name": "sheet-local-labels",
+      "sheetName": "Main",
+      "sheets": [
+        {
+          "name": "Budget",
+          "grid": {
+            "columns": 10,
+            "rows": 16
+          },
+          "layout": {
+            "columnWidths": {},
+            "rowHeights": {}
+          }
+        }
+      ],
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "name": "amount",
+          "source": "10"
+        },
+        {
+          "id": "B1",
+          "kind": "formula",
+          "name": "total",
+          "source": "amount + Budget.amount"
+        },
+        {
+          "id": "C1",
+          "kind": "markdown",
+          "name": "summary",
+          "source": "Main {{ total }} / budget {{ Budget.total }}"
+        },
+        {
+          "id": "Budget!A1",
+          "kind": "input",
+          "name": "amount",
+          "source": "20"
+        },
+        {
+          "id": "Budget!B1",
+          "kind": "formula",
+          "name": "total",
+          "source": "amount * 2 + Main.amount"
+        },
+        {
+          "id": "Budget!C1",
+          "kind": "markdown",
+          "name": "summary",
+          "source": "Budget {{ total }} / main {{ Main.total }}"
+        },
+        {
+          "id": "Budget!D1",
+          "kind": "formula",
+          "source": "amount = 3\nreturn amount + Main.amount"
+        }
+      ]
+    },
+    {
+      "name": "nested-notes",
+      "about": "Nested note groups preserve ordering and cross-sheet parents.",
+      "layout": {
+        "columnWidths": {},
+        "rowHeights": {},
+        "zoom": 1,
+        "noteOrder": [
+          "A1",
+          "A2",
+          "A3"
+        ],
+        "noteParents": {
+          "A2": "A1",
+          "A3": "A2"
+        }
+      },
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "markdown",
+          "source": "# Planning"
+        },
+        {
+          "id": "A2",
+          "kind": "markdown",
+          "source": "# Work"
+        },
+        {
+          "id": "A3",
+          "kind": "markdown",
+          "source": "# Project"
+        }
+      ]
+    },
+    {
+      "name": "reactive-widget-settings",
+      "about": "Widget expressions survive both writers and keep note parameter interpolations.",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "name": "limit",
+          "source": "20"
+        },
+        {
+          "id": "A2",
+          "kind": "formula",
+          "name": "upper",
+          "source": "limit * 2"
+        },
+        {
+          "id": "A3",
+          "kind": "input",
+          "name": "amount",
+          "source": "5",
+          "view": {
+            "display": "rendered",
+            "widget": {
+              "type": "range",
+              "min": 0,
+              "max": "upper",
+              "step": "limit / 10"
+            }
+          }
+        },
+        {
+          "id": "A4",
+          "kind": "input",
+          "name": "choices",
+          "source": "[\"Small\", \"Large\"]"
+        },
+        {
+          "id": "A5",
+          "kind": "input",
+          "name": "choice",
+          "source": "\"Small\"",
+          "view": {
+            "widget": {
+              "type": "select",
+              "options": "choices"
+            }
+          }
+        },
+        {
+          "id": "B1",
+          "kind": "markdown",
+          "source": "[Amount: {{ amount }}](#sheet-input:amount?type=range&min=0&max={{ upper }}&step={{ limit / 10 }})"
+        }
+      ],
+      "loads": {
+        "A5": "\"Small\""
+      }
+    },
+    {
+      "name": "linked-inputs",
+      "about": "Linked inputs retain derivations, overrides, annotations, and widgets through both writers.",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "name": "base",
+          "source": "10"
+        },
+        {
+          "id": "B1",
+          "kind": "linked",
+          "name": "price",
+          "source": "base * 2",
+          "annotation": "float",
+          "override": "7",
+          "view": {
+            "display": "rendered",
+            "widget": {
+              "type": "number",
+              "min": 0,
+              "max": "base * 4"
+            }
+          }
+        },
+        {
+          "id": "B2",
+          "kind": "linked",
+          "name": "greeting",
+          "source": "\"Hello\"",
+          "override": "\"\""
+        },
+        {
+          "id": "C1",
+          "kind": "formula",
+          "source": "price + 1"
+        },
+        {
+          "id": "D1",
+          "kind": "markdown",
+          "source": "[Price: {{ price }}](#sheet-input:price?type=number)"
+        }
+      ]
+    },
+    {
+      "name": "multiline-function-cell",
+      "about": "Multiline signatures return the helper; positional call arguments followed by a keyword remain reactive reads.",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "50",
+          "name": "freq"
+        },
+        {
+          "id": "A2",
+          "kind": "input",
+          "source": "4",
+          "name": "num_samples"
+        },
+        {
+          "id": "A3",
+          "kind": "input",
+          "source": "1000",
+          "name": "fs"
+        },
+        {
+          "id": "A5",
+          "kind": "formula",
+          "name": "generate_switching_pattern",
+          "source": "def generate_toggle_on_negative(\n    freq: float,\n    num_samples: int,\n    fs: float,\n    enable_inversion: bool = True,\n) -> float:\n    \"\"\"A helper with a multiline signature.\"\"\"\n    return freq * num_samples / fs"
+        },
+        {
+          "id": "B7",
+          "kind": "formula",
+          "name": "pulse_pattern_no_inversion",
+          "source": "generate_switching_pattern(\n    freq,\n    num_samples,\n    fs,\n    enable_inversion=False\n)"
+        }
+      ]
+    },
+    {
+      "name": "effect-input-writes",
+      "about": "Effect handles persist across both writers; update parameters stay local and linked inputs accept overrides.",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "5",
+          "name": "limit"
+        },
+        {
+          "id": "A2",
+          "kind": "input",
+          "source": "# Counter\n0",
+          "name": "counter"
+        },
+        {
+          "id": "B1",
+          "kind": "linked",
+          "source": "counter * 2",
+          "name": "price"
+        },
+        {
+          "id": "B2",
+          "kind": "formula",
+          "source": "counter + price"
+        },
+        {
+          "id": "C1",
+          "kind": "effect",
+          "source": "limit\nwith cells.batch():\n    cells.counter.update(lambda counter: limit)\n    cells.price.set(7)"
+        },
+        {
+          "id": "D1",
+          "kind": "effect",
+          "trigger": "manual",
+          "source": "cells.price.reset()"
+        }
+      ]
+    },
+    {
+      "name": "cell-equality",
+      "about": "Every value cell preserves its Python equality comparator in both writers.",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "1",
+          "name": "amount",
+          "equal": "lambda previous, current: abs(previous - current) < 0.01"
+        },
+        {
+          "id": "B1",
+          "kind": "formula",
+          "source": "amount * 2",
+          "equal": "lambda previous, current: previous is current"
+        },
+        {
+          "id": "B2",
+          "kind": "linked",
+          "source": "amount * 3",
+          "override": "5",
+          "equal": "lambda previous, current: previous == current"
+        },
+        {
+          "id": "C1",
+          "kind": "resource",
+          "source": "await asyncio.sleep(0.01)\nreturn amount",
+          "equal": "lambda previous, current: previous == current"
+        },
+        {
+          "id": "D1",
+          "kind": "markdown",
+          "source": "Amount: {{ amount }}",
+          "equal": "lambda previous, current: False"
+        }
+      ]
+    },
+    {
+      "name": "explicit-resource-parameters",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "name": "enabled",
+          "source": "True"
+        },
+        {
+          "id": "A2",
+          "kind": "input",
+          "name": "amount",
+          "source": "3"
+        },
+        {
+          "id": "B1",
+          "kind": "resource",
+          "name": "loaded",
+          "params": "# Capture only while enabled\namount if enabled else None",
+          "source": "await asyncio.sleep(0)\nreturn params * 2"
+        }
+      ]
+    },
+    {
+      "name": "reactive-widget-state",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "name": "running",
+          "source": "False"
+        },
+        {
+          "id": "A2",
+          "kind": "input",
+          "name": "ready",
+          "source": "True"
+        },
+        {
+          "id": "B1",
+          "kind": "input",
+          "name": "toggle",
+          "source": "False",
+          "view": {
+            "display": "rendered",
+            "widget": {
+              "type": "button",
+              "buttonMode": "toggle",
+              "label": {
+                "expr": "\"Stop\" if running else \"Start\""
+              },
+              "disabled": {
+                "expr": "not ready"
+              },
+              "loading": {
+                "expr": "running"
+              },
+              "pressed": {
+                "expr": "running"
+              },
+              "visible": {
+                "expr": "ready"
+              },
+              "placeholder": "running is literal text"
+            }
+          }
+        },
+        {
+          "id": "B2",
+          "kind": "input",
+          "source": "\"Guest\"",
+          "view": {
+            "widget": {
+              "type": "text",
+              "label": "Name",
+              "placeholder": {
+                "expr": "\"Busy\" if running else \"Your name\""
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "model-actions",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "1",
+          "name": "count",
+          "view": {
+            "widget": {
+              "type": "number",
+              "label": {
+                "expr": "'Working' if actions.add.running() else 'Count'"
+              }
+            }
+          }
+        },
+        {
+          "id": "B1",
+          "kind": "formula",
+          "source": "actions.add.result()",
+          "name": "last_result"
+        },
+        {
+          "id": "C1",
+          "kind": "markdown",
+          "source": "Last result: {{ actions.add.result() }}\n\n[Add](#sheet-action:add)"
+        },
+        {
+          "id": "D1",
+          "kind": "input",
+          "source": "0",
+          "name": "run_command",
+          "view": {
+            "widget": {
+              "type": "button",
+              "action": "add",
+              "label": "Add one batch",
+              "cancelWhileRunning": true,
+              "actionArguments": {
+                "quantity": {
+                  "cell": "A1"
+                },
+                "confirm": {
+                  "value": false
+                },
+                "extra": {
+                  "default": true
+                }
+              }
+            }
+          }
+        }
+      ],
+      "actions": [
+        {
+          "name": "add",
+          "label": "Add",
+          "source": "def add(self, quantity: int = 2, confirm: bool = False, extra=None):\n    # Preserve self.count in comments.\n    self.count.set(self.count() + quantity)\n    return self.count()",
+          "references": {
+            "count": "A1"
+          },
+          "bindings": {
+            "quantity": {
+              "value": 3
+            },
+            "confirm": {
+              "value": true
+            },
+            "extra": {
+              "value": null
+            }
+          },
+          "exposed": true
+        }
+      ]
+    },
+    {
+      "name": "python-input-values",
+      "about": "Inputs initialize from Python and function cells; radio controls share reactive options.",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "name": "state",
+          "source": "make_value()"
+        },
+        {
+          "id": "B1",
+          "kind": "formula",
+          "name": "make_value",
+          "source": "def make():\n    return np.array([1, 2, 3])"
+        },
+        {
+          "id": "A2",
+          "kind": "input",
+          "name": "choice",
+          "source": "\"EU\"",
+          "view": {
+            "widget": {
+              "type": "radio",
+              "options": "regions",
+              "label": "Region"
+            }
+          }
+        },
+        {
+          "id": "B2",
+          "kind": "input",
+          "name": "regions",
+          "source": "[\"EU\", \"US\"]"
+        },
+        {
+          "id": "C1",
+          "kind": "formula",
+          "source": "int(state.sum())"
+        },
+        {
+          "id": "D1",
+          "kind": "markdown",
+          "source": "[Region](#sheet-input:choice)"
+        }
+      ]
+    },
+    {
+      "name": "empty-cell-bodies",
+      "about": "Empty and comment-only cells produce valid methods while retaining source comments.",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "# Netzspannung"
+        },
+        {
+          "id": "A2",
+          "kind": "input",
+          "source": ""
+        },
+        {
+          "id": "B1",
+          "kind": "formula",
+          "source": "# Not implemented yet"
+        },
+        {
+          "id": "B2",
+          "kind": "linked",
+          "source": "# Linked placeholder"
+        },
+        {
+          "id": "C1",
+          "kind": "effect",
+          "source": "# No side effects yet"
+        },
+        {
+          "id": "C2",
+          "kind": "effect",
+          "source": ""
+        },
+        {
+          "id": "D1",
+          "kind": "resource",
+          "source": "# Loader placeholder"
+        },
+        {
+          "id": "D2",
+          "kind": "resource",
+          "source": "# Explicit loader placeholder",
+          "params": "# No request yet"
+        }
+      ]
+    },
+    {
+      "name": "action-duplicate-labels",
+      "about": "Repeated labels and generated-name collisions retain action cell targets.",
+      "sheets": [
+        {
+          "name": "PLC",
+          "grid": {
+            "columns": 10,
+            "rows": 16
+          },
+          "layout": {
+            "columnWidths": {},
+            "rowHeights": {}
+          }
+        }
+      ],
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "1",
+          "name": "pulse_signal"
+        },
+        {
+          "id": "A2",
+          "kind": "input",
+          "source": "0",
+          "name": "cell_plc_b6"
+        },
+        {
+          "id": "PLC!B6",
+          "kind": "input",
+          "source": "2",
+          "name": "pulse_signal"
+        }
+      ],
+      "actions": [
+        {
+          "name": "capture",
+          "source": "async def capture(self):\n    return self.plc_b6()",
+          "references": {
+            "plc_b6": "PLC!B6"
+          },
+          "bindings": {},
+          "exposed": true
+        }
+      ]
+    },
+    {
+      "name": "path-widgets",
+      "about": "File/folder widgets hold path strings and share reactive state and note references without reading files.",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "\"\"",
+          "name": "source_file",
+          "view": {
+            "display": "rendered",
+            "span": [
+              3,
+              3
+            ],
+            "widget": {
+              "type": "file",
+              "label": "Input file",
+              "disabled": {
+                "expr": "busy"
+              }
+            }
+          }
+        },
+        {
+          "id": "D1",
+          "kind": "input",
+          "source": "\"\"",
+          "name": "output_folder",
+          "view": {
+            "display": "rendered",
+            "span": [
+              3,
+              3
+            ],
+            "widget": {
+              "type": "folder",
+              "label": "Output folder"
+            }
+          }
+        },
+        {
+          "id": "G1",
+          "kind": "input",
+          "source": "False",
+          "name": "busy"
+        },
+        {
+          "id": "A5",
+          "kind": "markdown",
+          "source": "# Paths\n\n[Input file](#sheet-input:source_file)\n\n[Output folder](#sheet-input:output_folder)"
+        }
+      ]
+    },
+    {
+      "name": "session-inputs",
+      "about": "Input initializers retained instead of action-written runtime data, in both field and method forms.",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "# Acquired data\n[]",
+          "name": "samples",
+          "saveValue": false
+        },
+        {
+          "id": "A2",
+          "kind": "input",
+          "source": "list(range(3))",
+          "name": "seed",
+          "saveValue": false
+        },
+        {
+          "id": "B1",
+          "kind": "formula",
+          "source": "len(samples) + sum(seed)"
+        }
+      ]
+    },
+    {
+      "name": "refactored-label-layout",
+      "about": "Atomic label refactor output, cross-sheet action handles and custom track sizes survive save/open.",
+      "layout": {
+        "columnWidths": {
+          "B": 300
+        },
+        "rowHeights": {
+          "2": 64
+        }
+      },
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "10",
+          "name": "voltage"
+        },
+        {
+          "id": "B1",
+          "kind": "formula",
+          "source": "voltage * 2"
+        },
+        {
+          "id": "C1",
+          "kind": "markdown",
+          "source": "Voltage: {{ voltage }}",
+          "view": {
+            "page": false
+          }
+        },
+        {
+          "id": "Other!B1",
+          "kind": "formula",
+          "source": "Sheet1.voltage + 1"
+        }
+      ],
+      "sheets": [
+        {
+          "name": "Other",
+          "layout": {
+            "columnWidths": {
+              "A": 236
+            },
+            "rowHeights": {
+              "1": 180
+            }
+          },
+          "grid": {
+            "columns": 10,
+            "rows": 16
+          }
+        }
+      ],
+      "actions": [
+        {
+          "name": "adjust",
+          "source": "def adjust(self):\n    self.cells.Sheet1.voltage.set(self.voltage() + 1)",
+          "references": {
+            "voltage": "A1"
+          },
+          "exposed": true
+        }
+      ]
+    },
+    {
+      "name": "reactive-colors",
+      "about": "Reactive highlight references survive Python writing, loading, and execution.",
+      "cells": [
+        {
+          "id": "A1",
+          "kind": "input",
+          "source": "90",
+          "name": "temperature"
+        },
+        {
+          "id": "B1",
+          "kind": "formula",
+          "source": "temperature * 2",
+          "color": "#eeeeee",
+          "view": {
+            "color": {
+              "expr": "'#ffcccc' if temperature > 80 else '#ccffcc'"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,3109 @@
+<div
+  class="app-shell"
+  [class.app-run]="appRun()"
+  [class.without-formula-bar]="!formulaBarShown()"
+  [class.actions-mode]="actionsOpen()"
+  (window:keydown)="handleGlobalShortcut($event, sheetFile)"
+  (window:click)="closeTransientMenus()"
+>
+<ng-template #newWorkbookCommand><button data-overflow-tier="primary" data-label="New workbook"
+          class="toolbar-button"
+          type="button"
+          title="New workbook, in a new window (Ctrl/Cmd+Alt+N)"
+          (click)="openNewProject()"
+        >
+          <app-ui-icon name="new-file" />
+          <span>New</span>
+        </button></ng-template>
+<ng-template #newWindowCommand><button data-overflow-tier="secondary" data-label="New window"
+          class="toolbar-button icon-only"
+          type="button"
+          aria-label="New window"
+          title="New window — another workbook side by side"
+          (click)="openNewWindow()"
+        >
+          <app-ui-icon name="window" />
+        </button></ng-template>
+<ng-template #openWorkbookCommand><button data-overflow-tier="primary" data-label="Open workbook"
+          class="toolbar-button"
+          type="button"
+          title="Open a workbook in a new window (Ctrl/Cmd+O)"
+          (click)="openSheet(sheetFile)"
+        >
+          <app-ui-icon name="folder-open" />
+          <span>Open</span>
+        </button></ng-template>
+<ng-template #gitWorkbookCommand let-repository><button data-overflow-tier="primary" data-label="Git"
+            class="toolbar-button git-button"
+            type="button"
+            [class.has-changes]="repository.changes.length > 0 || hasUnsavedChanges()"
+            [title]="
+              'Git: ' + (repository.branch ?? 'detached') +
+              (repository.changes.length ? ' · ' + repository.changes.length + ' changed file(s)' : ' · committed') +
+              (repository.ahead ? ' · ' + repository.ahead + ' to push' : '') +
+              (repository.behind ? ' · ' + repository.behind + ' to pull' : '')
+            "
+            (click)="openGitPanel()"
+          >
+            <app-ui-icon name="branch" />
+            <span>{{ repository.branch ?? 'detached' }}</span>
+            @if (repository.ahead || repository.behind) {
+              <small>{{ repository.ahead ? '↑' + repository.ahead : '' }}{{ repository.behind ? '↓' + repository.behind : '' }}</small>
+            }
+          </button></ng-template>
+<ng-template #themeCommand><button data-overflow-tier="secondary" data-label="Change theme"
+          class="toolbar-button icon-only"
+          type="button"
+          [attr.aria-label]="themeLabel() + ' (click to change)'"
+          [title]="themeLabel() + ' — click to cycle themes; customize in App settings'"
+          (click)="cycleTheme()"
+        >
+          <app-ui-icon
+            [name]="theme() === 'dark' ? 'moon' : theme() === 'light' ? 'sun' : 'theme-auto'"
+          />
+        </button></ng-template>
+<ng-template #undoCommand><button data-overflow-tier="primary" data-label="Undo"
+        class="toolbar-button icon-only"
+        type="button"
+        aria-label="Undo"
+        [title]="undoLabel() ? 'Undo ' + undoLabel() + ' (Ctrl/Cmd+Z)' : 'Undo (Ctrl/Cmd+Z)'"
+        [disabled]="!hasUndo()"
+        (click)="undo()"
+      >
+        <app-ui-icon name="undo" />
+      </button></ng-template>
+<ng-template #redoCommand><button data-overflow-tier="primary" data-label="Redo"
+        class="toolbar-button icon-only"
+        type="button"
+        aria-label="Redo"
+        title="Redo (Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z)"
+        [disabled]="!hasRedo()"
+        (click)="redo()"
+      >
+        <app-ui-icon name="redo" />
+      </button></ng-template>
+  <header class="topbar">
+    <div class="brand-block">
+      <div class="brand-mark" aria-hidden="true">R</div>
+      <div class="document-identity">
+        <div class="brand-name">Reaktiv Workbook</div>
+        <div class="document-title-row">
+          @if (workbookNameDraft() !== null) {
+            <input id="workbook-title-input" class="workbook-title-input" aria-label="Workbook name"
+              [ngModel]="workbookNameDraft()" (ngModelChange)="workbookNameDraft.set($event)"
+              (blur)="finishWorkbookRename()"
+              (keydown.enter)="$event.preventDefault(); $event.stopPropagation(); finishWorkbookRename(true)"
+              (keydown.escape)="$event.preventDefault(); $event.stopPropagation(); cancelWorkbookRename()"
+              autocomplete="off" spellcheck="false" />
+          } @else {
+            <h1 class="document-name"><button id="workbook-title-button" type="button" class="workbook-title-button"
+              aria-label="Rename workbook" [disabled]="appRun()" [title]="documentName() + ' · Click to rename'"
+              (click)="beginWorkbookRename()">{{ documentName() }}</button></h1>
+          }
+          <button class="document-save-state" type="button" popovertarget="workbook-status"
+            [class.unsaved-badge]="hasUnsavedChanges()" [attr.aria-expanded]="statusDetailsOpen()"
+            [title]="documentActivityTooltip()" aria-label="Workbook save details">
+            {{ saving() ? 'Saving…' : hasUnsavedChanges() ? 'Unsaved' : lastSavedAt() || embeddedSession() ? 'Saved' : 'Not saved' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+
+    <nav class="title-views">
+    <div class="view-switch title-view-switch" aria-label="Workspace view">
+      <button type="button" title="Notes" [class.active]="!actionsOpen() && viewMode() === 'notes'" (click)="showNotes()">
+        <app-ui-icon name="edit" />
+        <span class="label">Notes</span>
+      </button>
+      <button type="button" title="Side-by-side views" [class.active]="!actionsOpen() && viewMode() === 'split'" (click)="showSplit()">
+        <app-ui-icon name="split" />
+        <span class="label">Split</span>
+      </button>
+
+      <button
+        type="button"
+        title="Cells"
+        [class.active]="!actionsOpen() && viewMode() === 'sheet'"
+        (click)="switchFromNotes('sheet')"
+      >
+        <app-ui-icon name="grid" />
+        <span class="label">Cells</span>
+      </button>
+      <button
+        type="button"
+        title="Graph"
+        [class.active]="!actionsOpen() && viewMode() === 'graph'"
+        (click)="switchFromNotes('graph')"
+      >
+        <app-ui-icon name="graph" />
+        <span class="label">Graph</span>
+      </button>
+      @if (!appRun()) {
+      <button type="button" aria-label="Actions" title="Actions editor" [class.active]="actionsOpen()" (click)="actionsOpen() ? actionsOpen.set(false) : openActions()">
+        <app-ui-icon name="code" /><span class="label">Actions</span>
+      </button>
+      }
+    </div>
+      @if (viewMode() === 'split' && !actionsOpen()) {
+        <button type="button" class="split-swap" title="Swap the left and right panes" aria-label="Swap workspace panes" (click)="toggleSplitSides()">
+          <app-ui-icon name="swap-horizontal" />
+        </button>
+      }
+      @if (!appRun()) {
+      <button type="button" class="notes-mode-button" aria-label="Workbook edit mode"
+        [class.editing]="workbookEditing()" [attr.aria-pressed]="workbookEditing()"
+        [title]="workbookEditing() ? 'Switch the whole workbook to View mode (Ctrl/Cmd+Shift+E)' : 'Edit the whole workbook (Ctrl/Cmd+Shift+E)'"
+        (click)="toggleNotesEditing()">
+        <app-ui-icon [name]="workbookEditing() ? 'edit' : 'check'" />
+        <span class="label">{{workbookEditing() ? 'Edit' : 'View'}}</span>
+      </button>
+      }
+    </nav>
+
+    <div class="top-actions">
+      <input
+        #sheetFile
+        class="file-input"
+        type="file"
+        accept=".py,.workbook.py,.json,.zip,text/x-python,application/json,application/zip"
+        multiple
+        (change)="loadSheet($event)"
+      />
+      <!-- One kernel button; its action follows the state: Start → Stop (while running) → Restart. -->
+      <div class="kernel-controls" role="group" aria-label="Python kernel">
+        @if (!kernelRunning()) {
+          <button class="toolbar-button kernel-button" type="button" aria-label="Start kernel"
+            [disabled]="runtime.status() === 'loading' || runtime.status() === 'running' || (!pendingStart() && runtime.status() === 'ready')"
+            title="Start Python kernel"
+            (click)="enableWorkbook()"><app-ui-icon name="power" /><span>{{ kernelNotice().action }}</span></button>
+        } @else if (stopAction()) {
+          <button class="toolbar-button kernel-button stopping" type="button"
+            [attr.aria-label]="stopLabel()"
+            [disabled]="stopAction() === 'stopping'"
+            [title]="stopAction() === 'force' ? 'Force stop: restart Python because it did not respond' : stopLabel() + ' (Ctrl/Cmd+.)'"
+            (click)="stopRunningCell()"><app-ui-icon name="stop" /><span>{{ stopAction() === 'force' ? 'Force stop' : 'Stop' }}</span></button>
+        } @else {
+          <button class="toolbar-button icon-only kernel-button" type="button"
+            [attr.aria-label]="embeddedSession() ? 'Reconnect to Python script' : 'Restart Python kernel'"
+            [title]="(embeddedSession() ? 'Reconnect without restarting the script-owned workbook' : 'Restart Python kernel and reevaluate the workbook') + ' · Stop a running cell with Ctrl/Cmd+.'"
+            [disabled]="pendingStart() || runtime.status() === 'loading'"
+            (click)="restartKernel()"><app-ui-icon name="restart" /></button>
+        }
+      </div>
+      @if (!appRun() || hasExposedActions()) {
+      <button class="toolbar-button icon-only action-launcher" type="button" aria-label="Run action"
+        [title]="runningAction() ? 'Action running · Show actions' : 'Run an action'"
+        [class.running]="!!runningAction()" [class.failed]="!!actionError() || !!actionResult(lastInvokedAction())?.error"
+        [attr.aria-expanded]="actionRunnerOpen()" (click)="actionRunnerOpen() ? actionRunnerOpen.set(false) : openActionRunner()">
+        <app-ui-icon name="play" />
+      </button>
+      }
+      <div class="toolbar-group file-actions" aria-label="Project actions">
+        @if (agentAccess.shared()) {
+        <button class="toolbar-button" type="button" aria-label="Agent access"
+          [class.active-button]="agentAccess.shared()" [attr.aria-expanded]="agentAccessOpen()"
+          [title]="agentAccess.activity() || (agentAccess.shared() ? 'Agent access · ' + agentAccess.status() + (agentAccess.lastActivity() ? ' · ' + agentAccess.lastActivity() : '') : 'Share this workbook with an MCP agent')"
+          (click)="agentAccessOpen.set(true)"><app-ui-icon name="link" /><span>{{ agentAccess.activity() ? 'Agent working…' : agentAccess.shared() ? 'Agent · ' + agentAccess.status() : 'Agent access' }}</span></button>
+        }
+        <button class="toolbar-button icon-only" type="button" aria-label="Search cells" title="Search cells (Ctrl/Cmd+Shift+F)" (click)="openCellSearch()"><app-ui-icon name="search" /></button>
+        <button
+          class="toolbar-button"
+          type="button"
+          title="Save project (Ctrl/Cmd+S)"
+          [disabled]="saving()"
+          (click)="saveSheet()"
+        >
+          <app-ui-icon [name]="saveFeedback() ? 'check' : 'save'" />
+          <span>{{ saving() ? 'Saving…' : saveFeedback() ? 'Saved' : 'Save' }}</span>
+        </button>
+        @if (git(); as repository) {
+          <ng-container *ngTemplateOutlet="gitWorkbookCommand; context: { $implicit: repository }" />
+        }
+      </div>
+      <button
+        class="toolbar-button icon-only more-toggle"
+        type="button"
+        aria-label="More actions"
+        title="More: examples, kernel, artifacts, logs, help"
+        [class.active-button]="moreOpen()"
+        (click)="$event.stopPropagation(); moreOpen.update((open) => !open)"
+      >
+        <app-ui-icon name="more" />
+      </button>
+      <div
+        class="more-menu" appToolbarPopup="popup"
+        [class.open]="moreOpen()"
+        role="menu"
+        (click)="$event.stopPropagation(); closeMoreIfAction($event)"
+      >
+      <button class="toolbar-button command-palette-entry" type="button" data-label="All commands…" (click)="openCommandPalette()">
+        <app-ui-icon name="search" /><kbd>Ctrl/Cmd+K</kbd>
+      </button>
+      <!-- Rare commands live here and in the command palette, not in the top bar. -->
+      <div class="more-commands" aria-label="Workbook files">
+<ng-container *ngTemplateOutlet="newWorkbookCommand" />
+<ng-container *ngTemplateOutlet="newWindowCommand" />
+<ng-container *ngTemplateOutlet="openWorkbookCommand" />
+<ng-container *ngTemplateOutlet="themeCommand" />
+      </div>
+      <!-- Shown here only when the window is too narrow for them in the top bar. -->
+      <div class="overflow-actions" aria-label="More toolbar actions">
+@if (git(); as repository) { <ng-container *ngTemplateOutlet="gitWorkbookCommand; context: { $implicit: repository }" /> }
+<ng-container *ngTemplateOutlet="undoCommand" />
+<ng-container *ngTemplateOutlet="redoCommand" />
+      </div>
+      <select
+        class="example-select"
+        aria-label="Open example workbook"
+        title="Open an example project"
+        (change)="moreOpen.set(false); loadExample($event)"
+      >
+        <option value="">Examples…</option>
+        @for (group of exampleLevels; track group.level) {
+          <optgroup [label]="group.label">
+            @for (example of examples; track example.file) {
+              @if (example.level === group.level) {
+                <option [value]="example.file">{{ example.title }}</option>
+              }
+            }
+          </optgroup>
+        }
+      </select>
+      <div class="toolbar-group utility-actions" aria-label="Workbook tools">
+        <button class="toolbar-button" type="button" aria-label="MCP server and agent access"
+          data-label="MCP server / Agent access" (click)="agentAccessOpen.set(true)">
+          <app-ui-icon name="link" /><span>MCP server / Agent access</span>
+        </button>
+        <button
+          class="toolbar-button icon-only"
+          type="button"
+          aria-label="Settings"
+          data-label="Settings"
+          title="Workbook and app settings (Ctrl/Cmd+,)"
+          [class.active-button]="settingsOpen()"
+          (click)="openSettings()"
+        >
+          <app-ui-icon name="settings" />
+        </button>
+        <button
+          class="toolbar-button icon-only"
+          type="button"
+          aria-label="Shared code"
+          data-label="Shared code"
+          title="Shared code: functions, classes, and constants for every cell"
+          [class.active-button]="sharedCodeOpen()"
+          (click)="openSharedCode()"
+        >
+          <app-ui-icon name="code" />
+        </button>
+        <button
+          class="toolbar-button compact-tool"
+          type="button"
+          title="Generated artifacts"
+          data-label="Artifacts"
+          [class.active-button]="artifactsOpen()"
+          (click)="toggleArtifacts()"
+        >
+          <app-ui-icon name="artifact" />
+          <span>{{ artifactCells().length }}</span>
+          <span class="visually-hidden">Artifacts ({{ artifactCells().length }})</span>
+        </button>
+        <button
+          class="toolbar-button compact-tool"
+          type="button"
+          title="Runtime logs (Ctrl/Cmd+Shift+L)"
+          data-label="Logs"
+          [class.active-button]="logsOpen()"
+          [class.has-problems]="problems().length > 0"
+          [attr.title]="
+            problems().length > 0
+              ? problems().length + ' cell(s) with errors · open logs (Ctrl/Cmd+Shift+L)'
+              : 'Runtime logs (Ctrl/Cmd+Shift+L)'
+          "
+          (click)="toggleLogs()"
+        >
+          <app-ui-icon name="logs" />
+          <span>{{ problems().length > 0 ? problems().length : logCounts().all }}</span>
+          <span class="visually-hidden">
+            Logs ({{ logCounts().all }}), {{ problems().length }} cells with errors
+          </span>
+        </button>
+        <button
+          class="toolbar-button icon-only"
+          type="button"
+          aria-label="Getting started"
+          data-label="Getting started"
+          title="Getting started"
+          (click)="showGettingStarted()"
+        >
+          <app-ui-icon name="help" />
+        </button>
+      </div>
+      </div>
+      <ng-container *ngTemplateOutlet="undoCommand" />
+      <ng-container *ngTemplateOutlet="redoCommand" />
+      @if (!actionsOpen() && viewMode() !== 'notes') {
+        <button id="inspector-toggle" class="toolbar-button icon-only inspector-toggle" type="button"
+          [class.active-button]="inspectorVisible()" [attr.aria-expanded]="inspectorVisible()" aria-controls="cell-inspector"
+          [attr.aria-label]="inspectorVisible() ? 'Hide inspector' : 'Show inspector'"
+          [title]="(inspectorVisible() ? 'Hide' : 'Show') + ' the cell panel (I)'" (click)="toggleInspector()">
+          <app-ui-icon [name]="inspectorVisible() ? 'panel-right-close' : 'panel-right-open'" />
+        </button>
+      }
+    </div>
+  </header>
+
+  <!-- Keep this grid item when the notice hides so the workspace and footer stay in their rows. -->
+  <div class="kernel-notice-slot">
+    <app-kernel-notice class="kernel-notice" [hidden]="kernelRunning()" [state]="kernelNotice()">
+      <button type="button" class="primary-button kernel-notice-start" [disabled]="kernelNotice().busy" (click)="enableWorkbook()">
+        {{ kernelNotice().action }}
+      </button>
+    </app-kernel-notice>
+  @if (workbookMigration()) {
+    <app-workbook-migration-notice [session]="embeddedSession()" [saving]="saving()" [filename]="migrationFilename()"
+      (filenameChanged)="migrationFilename.set($event)" (saveCopy)="saveSheet({saveAs:true})" />
+  }
+  </div>
+
+  @if (formulaBarShown()) {
+    <section class="formula-bar" aria-label="Formula editor" [attr.inert]="actionsOpen() ? '' : null">
+      <label class="cell-address" [class.has-draft]="hasCellDraft(selectedId())"
+        [title]="hasCellDraft(selectedId()) ? 'Unapplied changes' : 'Selected cell'"
+        for="cell-source">{{ selectedId() }}</label>
+      <span class="visually-hidden" role="status">{{ hasCellDraft(selectedId()) ? selectedId() + ' has unapplied changes' : '' }}</span>
+      <input
+        class="cell-label-field"
+        [class.needs-label]="labelHint() !== null"
+        [(ngModel)]="editorName"
+        [readonly]="!kernelRunning() || !workbookEditing()"
+        aria-label="Cell label"
+        [title]="labelHint() ?? 'Stable Python label'"
+        [placeholder]="labelHint() !== null ? 'name this cell' : 'cell_label'"
+        autocomplete="off"
+        spellcheck="false"
+        (keydown.enter)="$event.preventDefault(); $event.stopPropagation(); workbookEditing() && applyCell()"
+      />
+      <div class="cell-type-select" [style.--cell-kind-color]="cellTypes[editorKind].color">
+        <app-ui-icon [name]="cellTypes[editorKind].icon" />
+        <select [(ngModel)]="editorKind" aria-label="Cell type" [disabled]="!kernelRunning() || !workbookEditing()">
+          @for (type of cellTypeOptions; track type.kind) {
+            <option [value]="type.kind">{{ type.kind === 'markdown' ? (selectedMarkdownIsPage() ? 'Note page' : 'Text / heading') : type.label }}</option>
+          }
+        </select>
+      </div>
+      @if (editorKind === 'markdown') {
+        <input
+          id="cell-source"
+          [ngModel]="editorSource"
+          [readonly]="!kernelRunning() || !workbookEditing()"
+          (ngModelChange)="updateEditorSource($event)"
+          placeholder="Markdown with cell interpolation"
+          (keydown.enter)="workbookEditing() && applyCell()"
+          autocomplete="off"
+          spellcheck="false"
+        />
+      } @else {
+        <div class="formula-editor-field"
+          (click)="openFormulaEditor(codeEditor); codeEditor.focus()"
+          (keydown.escape)="collapseFormulaEditor($event)"
+          (document:pointerdown)="dismissFormulaEditor($event)">
+          @if (formulaExpanded()) { <span class="formula-overlay-preview" aria-hidden="true">{{ editorSource }}</span> }
+        <app-python-editor
+          id="cell-source"
+          class="formula-code-editor"
+          [class.single-line]="!formulaExpanded()"
+          [class.formula-overlay-open]="formulaExpanded()"
+          [resizable]="formulaExpanded()"
+          [value]="editorSource"
+          [singleLine]="!formulaExpanded()"
+          [completions]="pythonCompletions()"
+          [languageService]="editorLanguageService"
+          [referencesEnabled]="true"
+          (referenceNavigate)="openReferencedCell($event)"
+          ariaLabel="Python cell source"
+          (valueChange)="updateEditorSource($event)"
+          [readOnly]="!kernelRunning() || !workbookEditing()"
+          (commit)="workbookEditing() && applyCell(); collapseFormulaEditor()"
+          #codeEditor
+          (focusChange)="$event && openFormulaEditor(codeEditor)"
+        />
+        </div>
+        <ng-container *ngTemplateOutlet="pickCells; context: { $implicit: codeEditor }" />
+      }
+      @if (editorKind !== 'markdown') {
+        <button class="icon-button formula-expand" type="button"
+          [attr.aria-label]="formulaExpanded() ? 'Collapse code editor' : 'Expand code editor'"
+          [attr.aria-expanded]="formulaExpanded()"
+          [title]="formulaExpanded() ? 'Collapse code editor' : 'Expand code editor · Shift+Enter applies changes'"
+          (click)="toggleFormulaExpanded()"><app-ui-icon [name]="formulaExpanded() ? 'collapse' : 'expand'" /></button>
+      }
+      <div class="cell-draft-actions" aria-label="Cell editing actions">
+        <button class="secondary-button" type="button" (click)="discardCellDraft()"
+          [disabled]="!hasCellDraft(selectedId())" [class.has-draft]="hasCellDraft(selectedId())"
+          aria-label="Discard draft" title="Discard draft: restore the applied cell, or empty a new cell">
+          <app-ui-icon name="undo" /><span class="action-label">Discard draft</span>
+        </button>
+        <button class="primary-button" type="button" [disabled]="!kernelRunning() || !workbookEditing()" (click)="workbookEditing() && applyCell()"
+          aria-label="Apply cell" title="Apply cell">
+          <app-ui-icon name="check" /><span class="action-label">Apply</span>
+        </button>
+      </div>
+    </section>
+  }
+
+  <!-- "Pick cells": opt-in mode where clicking cells inserts references into the editor. -->
+  <ng-template #pickCells let-editor>
+      <button
+        class="icon-button pick-cells-button"
+        type="button"
+        [class.active-button]="referenceEditor() !== null"
+        [attr.aria-pressed]="referenceEditor() !== null"
+        [disabled]="!kernelRunning() || !workbookEditing()"
+        [title]="
+          referenceEditor() !== null
+            ? 'Stop picking cells (Esc)'
+            : 'Pick cells: click cells in the sheet to insert references'
+        "
+        aria-label="Pick cells to insert references"
+        (mousedown)="$event.preventDefault()"
+        (click)="togglePickReferences(editor)"
+      >
+        <app-ui-icon name="pointer" />
+      </button>
+  </ng-template>
+
+  @defer (when actionsOpen()) {
+  <app-action-panel #actionWorkspacePanel class="actions-page" [hidden]="!actionsOpen()" mode="workspace" [definitions]="actionDefinitions()" [actions]="graph().actions ?? []" [effects]="graph().effects" [cells]="cells()"
+      [canEdit]="workbookEditing() && !appRun()" [enabled]="kernelRunning()" [busyName]="runningAction()" [runningNames]="runningActionNames()" [error]="actionError()" [applying]="actionApplying() || saving()" [applied]="actionApplied()" [selected]="selectedAction()" [initialSource]="actionInitialSource()" [initialArguments]="actionInitialArguments()" [completions]="actionCompletions()" [languageService]="editorLanguageService" [pinned]="pinnedActionNames()"
+      (pinToggled)="toggleActionPin($event)"
+      (closed)="actionsOpen.set(false)" (invoked)="invokeAction($event)" (saved)="saveAction($event)" (bindingsSaved)="saveActionBindings($event)" (cancelled)="cancelAction($event)" (invocationCancelled)="cancelAction($event.name, $event.id)" (removed)="removeAction($event)" />
+  }
+
+  <main
+    [attr.inert]="actionsOpen() ? '' : null"
+    class="workspace"
+    [class.notes-collapsed]="viewMode() === 'notes' && notesSidebarCollapsed()"
+    [class.notes-workspace]="viewMode() === 'notes'"
+    [class.split-workspace]="viewMode() === 'split'"
+    [class.inspector-open]="inspectorVisible()"
+    [class.inspector-collapsed]="viewMode() !== 'notes' && !inspectorVisible()"
+    [style.--sidebar-width]="sidebarWidth() === null ? null : sidebarWidth() + 'px'"
+    [class.editor-expanded]="editorExpanded() && inspectorVisible()"
+  >
+    <section
+      class="sheet-panel"
+
+      aria-label="Reactive spreadsheet"
+    >
+
+
+
+      <ng-template #notesPane let-pane>
+        @if (definitionAt(pane.noteId)?.kind === 'markdown') {
+          @if (agentActivity.feedback().get(pane.noteId); as feedback) {
+            <app-agent-cell-feedback [showOrigin]="agentActivity.showOrigins()" [inline]="true" [feedback]="feedback" />
+          }
+          <app-markdown-cell-editor [attr.data-cell-id]="pane.noteId" [attr.data-agent-pane]="pane.index"
+            [readOnly]="!kernelRunning() || !notesEditing()"
+            [interactive]="kernelRunning()"
+            [source]="pane.source"
+            [evaluatedSource]="resultAt(pane.noteId)?.display ?? ''"
+            [title]="pane.title"
+            [cellId]="pane.noteId"
+            [values]="pane.values"
+            [runningAction]="runningAction()" [runningActions]="runningActionNames()" [cancellingActions]="cancellingActionNames()" [actionBusy]="runtime.status() === 'running' && !runningAction()" [actionFeedback]="widgetActionFeedback()"
+            (actionInvoked)="triggerWidgetAction($event)"
+            [noteLinks]="pane.noteLinks"
+            [zoom]="pane.noteZoom"
+            [viewZoom]="pane.noteZoom" [viewZoomMin]="0.7" [viewZoomMax]="1.6"
+            zoomContent=".note-page, .raw-source" (viewZoomChange)="setPaneNoteZoom(pane.index, $event)"
+            (sourceChange)="updatePaneNote(pane.index, $event)"
+            (zoomChange)="setPaneNoteZoom(pane.index, $event)"
+            (cellSelected)="openReferencedCell($event)"
+            (widgetChange)="updateInputFromWidget($event)"
+            (linkedReset)="resetLinkedInput($event)"
+          />
+        } @else {
+          <div class="notes-empty">
+            <span aria-hidden="true">¶</span>
+            <h2>No notes yet</h2>
+            <p>Create a note page here. Worksheet text and headings stay in the grid unless Show in Notes is enabled.</p>
+            <button class="primary-button" type="button" (click)="createNote()">
+              Create first note
+            </button>
+          </div>
+        }
+</ng-template>
+      <ng-template #cellsPane let-pane><div class="sheet-area">
+<div class="cell-toolbar view-header" aria-label="Cell tools">
+          <app-cell-focus [kind]="cellTypeFocus()" (changed)="cellTypeFocus.set($event)" />
+          <strong>
+            {{
+              selectedIds().size > 1
+                ? selectedIds().size + ' cells'
+                : definitionAt(selectedId())?.name || selectedId()
+            }}
+          </strong>
+          @if (definitionAt(selectedId()) === undefined) {
+            <span class="cell-prefix-hint">= formula · ! effect · ~ async</span>
+          }
+          <button
+            type="button"
+            class="icon-only"
+            title="Copy reference"
+            aria-label="Copy reference"
+            (click)="copyContextCellReference(selectedId())"
+          >
+            <app-ui-icon name="copy" />
+          </button>
+          @if (workbookEditing()) {
+          <button type="button" class="icon-only color-trigger" [attr.popovertarget]="'cell-color-menu' + pane.index"
+            title="Highlight colour" aria-label="Highlight colour" [disabled]="definitionAt(selectedId()) === undefined">
+            <span class="color-dot" [style.background]="definitionAt(selectedId())?.color || 'transparent'"></span>
+          </button>
+          <div [id]="'cell-color-menu' + pane.index" popover class="cell-toolbar-colors color-menu" aria-label="Cell highlight"
+            (toggle)="placeColorMenu($event)" (click)="closeColorMenu($event)">
+            @for (color of cellColors; track color) {
+              <button
+                type="button"
+                class="color-swatch"
+                [style.background]="color"
+                [attr.aria-label]="'Highlight cell ' + color"
+                [class.active]="
+                  definitionAt(selectedId())?.color === color && selectedIds().size === 1
+                "
+                [disabled]="definitionAt(selectedId()) === undefined"
+                (click)="setCellColor(selectedId(), color)"
+              ></button>
+            }
+            <button
+              type="button"
+              class="clear-color"
+              aria-label="Remove cell highlight"
+              title="Remove highlight"
+              [disabled]="definitionAt(selectedId()) === undefined"
+              (click)="setCellColor(selectedId(), '')"
+            >
+              ×
+            </button>
+          </div>
+          <button
+            type="button"
+            class="icon-only"
+            title="Delete selected cell (Delete)"
+            aria-label="Delete selected cell"
+            [disabled]="definitionAt(selectedId()) === undefined"
+            (click)="deleteSelected()"
+          >
+            <app-ui-icon name="trash" />
+          </button>
+          @if (selectedIds().size > 1 && collectableSelection().length > 0) {
+            <button
+              type="button"
+              class="collect-button"
+              title="New computed cell with a list of the selected cells' values (Alt+L)"
+              (click)="collectSelection('list')"
+            >
+              <app-ui-icon name="plus" /> Collect as list
+            </button>
+            <button
+              type="button"
+              title="New computed cell with a dict of the selected cells by name (Alt+D)"
+              (click)="collectSelection('dict')"
+            >
+              <app-ui-icon name="plus" /> as dict
+            </button>
+          }
+          }
+          <span class="cell-toolbar-spacer"></span>
+          <app-view-options label="Cell view options">
+            <section class="options-section" aria-label="Arrows">
+              <h3>Arrows</h3>
+              @defer (on idle) {
+                <app-cell-connection-controls [settings]="cellConnections()" (changed)="cellConnections.set($event)" />
+              }
+            </section>
+            @if (workbookEditing()) {
+              <section class="options-section" aria-label="Grid size">
+                <h3>Grid</h3>
+                <app-sheet-extent [columns]="pane.columns.length" [rows]="pane.rows.length" [minColumns]="pane.extent.columns" [minRows]="pane.extent.rows" (started)="beginSheetResize()" (changed)="resizeSheetExtent($event)" />
+                <div class="options-row">
+                  <button type="button" title="Add row" (click)="addRow()"><app-ui-icon name="plus" /> Row</button>
+                  <button type="button" title="Add column" (click)="addColumn()"><app-ui-icon name="plus" /> Column</button>
+                </div>
+              </section>
+            }
+          </app-view-options>
+        </div>
+          <div class="sheet-scroll" [viewZoom]="pane.zoom" zoomContent=".sheet-grid" (viewZoomChange)="setPaneZoom(pane.index, $event)">
+            <div class="sheet-grid-frame" [style.width.px]="pane.gridWidth * pane.zoom" [style.height.px]="pane.gridHeight * pane.zoom">
+            <div
+              class="sheet-grid"
+              [class.picking-references]="referenceEditor() !== null"
+              [style.grid-template-columns]="pane.gridColumns"
+              [style.grid-template-rows]="pane.gridRows"
+              [style.width.px]="pane.gridWidth"
+              [style.zoom]="pane.zoom"
+              (dragleave)="leaveCellDrop($event)"
+            >
+              <div class="corner-cell" style="grid-area: 1 / 1"></div>
+              @for (column of pane.columns; track column; let columnIndex = $index) {
+                <div
+                  class="column-header"
+                  [style.grid-row]="1"
+                  [style.grid-column]="columnIndex + 2"
+                  role="button"
+                  [title]="'Select the filled cells in column ' + column + ' (Ctrl/⌘+click to add)'"
+                  (click)="selectColumn(column, $event)"
+                >
+                  {{ column }}
+                  <span
+                    class="resize-handle column-resize"
+                    role="separator"
+                    [attr.aria-label]="'Resize column ' + column"
+                    [style.display]="workbookEditing() ? null : 'none'" (pointerdown)="startColumnResize($event, column)"
+                  ></span>
+                </div>
+              }
+
+              @for (row of pane.rows; track row) {
+                <div
+                  class="row-header"
+                  [style.grid-row]="row + 1"
+                  [style.grid-column]="1"
+                  role="button"
+                  [title]="'Select the filled cells in row ' + row + ' (Ctrl/⌘+click to add)'"
+                  (click)="selectRow(row, $event)"
+                >
+                  {{ row }}
+                  <span
+                    class="resize-handle row-resize"
+                    role="separator"
+                    [attr.aria-label]="'Resize row ' + row"
+                    [style.display]="workbookEditing() ? null : 'none'" (pointerdown)="startRowResize($event, row)"
+                  ></span>
+                </div>
+                @for (column of pane.columns; track column) {
+                  @let id = qualifiedPaneCell(pane.sheet, column, row);
+                  @let definition = definitionAt(id);
+                  @let result = resultAt(id);
+                  @if (!pane.covered.has(id)) {
+                  <div
+                    class="sheet-cell"
+                    [id]="pane.index < 0 ? 'cell-' + id : 'pane-' + pane.index + '-cell-' + id"
+                    [attr.data-cell-id]="id"
+                    [attr.data-agent-cell-id]="id" [attr.data-agent-pane]="pane.index" data-agent-view="sheet" [attr.data-agent-zoom]="pane.zoom"
+                    [attr.data-agent-layout-key]="agentCellLayoutKey(definition)" [attr.data-agent-layout-revision]="graph().workbookRevision ?? ''"
+                    [ngClass]="cellClasses(id)"
+                    [style.opacity]="cellTypeFocus() && !focusedTypeIds().has(id) ? 0.32 : null"
+                    [class.tile]="isRendered(definition)"
+                    [class.text-label]="worksheetLabelIds().has(id)"
+                    [class.spanning]="definition?.view?.span !== undefined"
+                    [style.grid-row]="cellGridRow(id)"
+                    [style.grid-column]="cellGridColumn(id)"
+                    [style.--cell-color]="cellHighlight(id)"
+                    [draggable]="workbookEditing() && definition !== undefined && widgetPointerCell() !== id && !pendingMove()"
+                    [attr.aria-label]="id + (result?.display ? ': ' + result?.display : '')"
+                    [attr.title]="result?.error ?? null"
+                    role="button"
+                    tabindex="0"
+                    (mousedown)="pickReference($event, id)"
+                    (click)="selectGridCell(id, $event)"
+                    (contextmenu)="workbookEditing() && openCellContextMenu($event, id)"
+                    (dblclick)="cellDoubleClick($event, id)"
+                    (keydown)="handleGridKey($event, id)"
+                    (dragstart)="startDrag($event, id)"
+                    (dragend)="endCellDrag()"
+                    (dragover)="workbookEditing() && previewCellDrop($event, id, pane.index)"
+                    (drop)="workbookEditing() && dropCell($event, id)"
+                  >
+                    @if (agentActivity.feedback().get(id); as feedback) {
+                      <app-agent-cell-feedback [showOrigin]="agentActivity.showOrigins()" [feedback]="feedback" />
+                    }
+                    @if (definition?.kind === 'linked') { <span class="cell-kind" title="Linked input">↔</span>@if (definition?.override !== undefined || resultAt(id)?.runtimeOnlyInput) { <button type="button" class="linked-mode" title="Value overridden · Reset to derived value" [attr.aria-label]="'Reset ' + (definition?.name || id) + ' to derived value'" [disabled]="!kernelRunning()" (click)="$event.stopPropagation(); resetLinkedInput(id)">↺</button> } } @else if (definition?.kind === 'formula') {
+                      <span class="cell-kind">ƒ</span>
+                    } @else if (definition?.kind === 'resource') {
+                      <span class="cell-kind">↻</span>
+                    } @else if (definition?.kind === 'effect') {
+                      <span class="cell-kind">⚡</span>
+                    }
+                    @if (timerTitle(id); as timer) {
+                      <span class="cell-kind cell-timer" [title]="'Clock: ' + timer">◷</span>
+                    }
+                    @if (definition?.name) {
+                      <span class="cell-label">{{ definition?.name }}</span>
+                    }
+                    @if (isRendered(definition) && result && !result.error) {
+                      <ng-container [ngTemplateOutlet]="renderedCellOutput" [ngTemplateOutletContext]="{$implicit:id, definition, result}" />
+                    } @else if (result?.richOutput; as output) {
+                      @if (isAnywidgetOutput(output)) {
+                        <span class="plotly-cell-preview" title="anywidget — show it rendered in the worksheet or Notes">
+                          🧩 Widget
+                        </span>
+                      } @else if (isHtmlOutput(output)) {
+                        <span class="plotly-cell-preview" title="HTML output — show it rendered in the worksheet or Notes">
+                          ▤ HTML
+                        </span>
+                      } @else if (isPlotlyOutput(output)) {
+                        <span class="plotly-cell-preview" title="Interactive Plotly chart — show it rendered in the worksheet or Notes">
+                          📈 {{ plotlyTitle(output.dataBase64) }}
+                        </span>
+                      } @else {
+                        <img
+                          class="artifact-cell-preview"
+                          [src]="richOutputDataUrl(output)"
+                          alt="Plot"
+                        />
+                      }
+                    } @else if (result?.table && result.table.kind !== 'rows') {
+                      @let table = result.table;
+                      <span class="table-cell-preview" [title]="table.kind + ' · ' + tableSummary(table)">
+                        <span class="table-cell-title"
+                          >▦ {{ table.kind === 'records' ? 'Table' : table.kind }}
+                          {{ table.rowCount }} × {{ table.columnCount }}</span
+                        >
+                        <small>{{ table.columns.join(', ') }}</small>
+                      </span>
+                    } @else if (result?.artifact; as artifact) {
+                      @if (isPreviewableArtifact(artifact)) {
+                        <img
+                          class="artifact-cell-preview"
+                          [src]="artifactDataUrl(artifact)"
+                          [alt]="artifact.filename"
+                        />
+                      } @else {
+                        <span class="artifact-file">▣ {{ artifact.filename }}</span>
+                      }
+                    } @else if (definition?.kind === 'markdown' && !result?.error) {
+                      <div
+                        class="markdown-content markdown-cell"
+                        [innerHTML]="markdownAt(id)"
+                      ></div>
+                    } @else if (
+                      rendersMarkdown(id) && result?.valueType === 'str' && !result.error
+                    ) {
+                      <div
+                        class="markdown-content markdown-cell string-markdown-cell"
+                        [innerHTML]="stringMarkdownAt(id)"
+                      ></div>
+                    } @else {
+                      <span class="cell-value">{{ typedInputAt(id) ?? result?.display ?? '' }}</span>
+                    }
+                    @if (result?.durationMs !== null && result?.durationMs !== undefined) {
+                      <span
+                        class="cell-duration"
+                        [title]="'Last execution: ' + formatDuration(result.durationMs)"
+                      >
+                        {{ formatDuration(result.durationMs) }}
+                      </span>
+                    }
+                    @if (showCellMemory()) { <app-cell-memory class="grid-memory" [measurement]="cellMemory()[id]" /> }
+                    @if (result?.error) {
+                      <span class="error-corner"></span>
+                    }
+                    @if (definition && selectedId() === id && selectedIds().size === 1) {
+                      <span
+                        class="tile-resize-handle"
+                        role="separator"
+                        title="Drag to span more cells (dashboard tile)"
+                        aria-label="Resize tile"
+                        (mousedown)="$event.preventDefault()"
+                        [style.display]="workbookEditing() ? null : 'none'" (pointerdown)="startSpanResize($event, id)"
+                      ></span>
+                    }
+                  </div>
+                  }
+                }
+              }
+              @if (cellDropPreview(); as preview) {
+                @if (preview.pane === pane.index) {
+                  <app-cell-drop-preview [preview]="preview" [sheet]="pane.sheet" [columns]="pane.columns" [rows]="pane.rows"
+                    [columnWidths]="pane.columnWidths" [rowHeights]="pane.rowHeights" />
+                }
+              }
+              @defer (on idle) {
+                <app-cell-connections [selected]="selectedId()" [dependencies]="graphDependencies()" [settings]="cellConnections()"
+                  [cells]="cells()" [sheet]="pane.sheet" [columns]="pane.columns" [rows]="pane.rows"
+                  [columnWidths]="pane.columnWidths" [rowHeights]="pane.rowHeights" [covered]="pane.covered"
+                  (cellSelected)="openReferencedCell($event)" />
+              }
+            </div>
+          </div>
+          </div>
+          <!-- Sheets share one reactive graph: reference Budget.A1 or a cell label. -->
+          <nav class="sheet-tabs" aria-label="Sheets">
+            @for (tab of sheetTabs(); track tab.prefix) {
+              @if (renamingSheet() === tab.prefix) {
+                <input
+                  class="sheet-tab-rename"
+                  aria-label="Sheet name"
+                  [value]="tab.name"
+                  (keydown.enter)="renameSheet(tab.prefix, $any($event.target).value)"
+                  (keydown.escape)="renamingSheet.set(null)"
+                  (blur)="renameSheet(tab.prefix, $any($event.target).value)"
+                />
+              } @else {
+                <button
+                  type="button"
+                  class="sheet-tab"
+                  [class.active]="pane.sheet === tab.prefix"
+                  [class.drop-target]="sheetDropTarget() === tab.prefix"
+                  draggable="true"
+                  (dragstart)="startSheetDrag($event, tab.name)"
+                  (dragend)="endSheetDrag()"
+                  (dragover)="sheetDragOver($event, tab.prefix)"
+                  (dragleave)="sheetDropTarget.set(null)"
+                  (drop)="dropOnSheet($event, tab.prefix)"
+                  [title]="'Sheet ' + tab.name + ' · reference its cells as ' + tab.name + '.A1 · double-click to rename · drag to reorder · right-click for more'"
+                  (mousedown)="referenceEditor() !== null && $event.preventDefault()"
+                  (click)="pane.index < 0 ? switchSheet(tab.prefix) : setSplitSheet(pane.index, tab.prefix)"
+                  (dblclick)="startRenameSheet(tab.prefix)"
+                  (contextmenu)="openSheetMenu($event, tab.prefix)"
+                >
+                  {{ tab.name }}
+                </button>
+              }
+            }
+            <button type="button" class="sheet-tab add" title="Add a sheet" aria-label="Add sheet" (click)="addSheet()">
+              <app-ui-icon name="plus" />
+            </button>
+          </nav>
+    <app-zoom-control label="Sheet zoom" [zoom]="pane.zoom" fitLabel="Fit worksheet in view" fitTitle="Fit occupied cells in view (10–100%)"
+      (zoomOut)="setPaneZoom(pane.index, pane.zoom - 0.1)" (reset)="setPaneZoom(pane.index, 1)"
+      (zoomIn)="setPaneZoom(pane.index, pane.zoom + 0.1)" (fit)="fitSheetFromToolbar($event, pane.sheet, pane.index)" />
+          </div></ng-template>
+      <!-- Shared output path: grid tiles and graph cards use identical controls/renderers. -->
+      <ng-template #renderedCellOutput let-id let-definition="definition" let-result="result">
+                      <!-- Dashboard tile: the content itself, sized to the tile. -->
+                      @if (result.richOutput; as output) {
+                        @if (isPlotlyOutput(output)) {
+                          <reaktiv-plotly class="tile-plot tile-chart" [attr.data-spec]="output.dataBase64" />
+                        } @else if (isHtmlOutput(output)) {
+                          <reaktiv-html class="tile-html" [attr.data-spec]="output.dataBase64" />
+                        } @else if (isAnywidgetOutput(output)) {
+                          <reaktiv-anywidget
+                            class="tile-widget"
+                            [attr.data-cell]="id"
+                            [attr.data-spec]="output.dataBase64"
+                            (mousedown)="$event.stopPropagation()"
+                          />
+                        } @else {
+                          <img class="tile-plot" [src]="richOutputDataUrl(output)" alt="Plot" />
+                        }
+                      } @else if (result.artifact && isPreviewableArtifact(result.artifact)) {
+                        <img
+                          class="tile-plot"
+                          [src]="artifactDataUrl(result.artifact)"
+                          [alt]="result.artifact.filename"
+                        />
+                      } @else if (result.table; as table) {
+                        <div class="tile-table" [innerHTML]="tableHtml(table)"></div>
+                      } @else if (definition?.kind === 'markdown') {
+                        <div class="markdown-content tile-note" [innerHTML]="markdownAt(id)"></div>
+                      } @else if ((definition?.kind === 'input' || definition?.kind === 'linked')) {
+                        @let widget = tileWidget(id);
+                        @if (result.widgetError) { <span class="cell-error" role="status">Widget: {{ result.widgetError }}</span> }
+                        @if (isRichWidget(widget.type)) {
+                          <app-rich-widget
+                            class="tile-widget tile-rich-widget"
+                            [type]="widget.type"
+                            [label]="widgetLabel(id, widget)"
+                            [visible]="widget.visible !== false"
+                            [loading]="widget.loading ?? false"
+                            [pressed]="widget.pressed"
+                            [placeholder]="widget.placeholder ?? ''"
+                            [buttonMode]="widget.buttonMode ?? 'count'"
+                            [action]="widget.action" [actionError]="widget.actionError" [cancelWhileRunning]="widget.cancelWhileRunning ?? false" [actionState]="widget.actionState"
+                            (actionInvoked)="triggerWidgetAction({cellId:id,name:$event,arguments:widget.actionArguments ?? {}})"
+                            [value]="result.value"
+                            [options]="widget.options ?? []"
+                            [disabled]="!kernelRunning() || !!result.widgetError || !!widget.disabled || !!widget.loading"
+                            (valueChange)="changeRichWidget(id, widget, $event)"
+                            (click)="$event.stopPropagation()"
+                            (dblclick)="$event.stopPropagation()"
+                            (pointerdown)="holdWidget(id, $event)"
+                          />
+                        } @else {
+                        <label
+                          class="tile-widget"
+                          [hidden]="widget.visible === false"
+                          [attr.aria-busy]="widget.loading ?? false"
+                          (click)="$event.stopPropagation()"
+                          (dblclick)="$event.stopPropagation()"
+                          (pointerdown)="holdWidget(id, $event)"
+                        >
+                          @if (widget.label) { <span class="tile-widget-label">{{ widget.label }}</span> }
+                          @if (widget.type === 'checkbox') {
+                            <input
+                              type="checkbox"
+                              [attr.aria-label]="widgetLabel(id, widget)"
+                              [checked]="result.value === true"
+                              [disabled]="!kernelRunning() || !!result.widgetError || !!widget.disabled || !!widget.loading"
+                              (change)="changeTileWidget($event, id, widget)"
+                            />
+                          } @else if (widget.type === 'select') {
+                            <select [value]="result.display" [disabled]="!kernelRunning() || !!result.widgetError || !!widget.disabled || !!widget.loading"
+                              (change)="changeTileWidget($event, id, widget)">
+                              @if (result.value !== '' && !(widget.options ?? []).includes($any(result.value))) {
+                                <option [value]="result.value" selected disabled>{{ result.display }} (unavailable)</option>
+                              }
+                              @for (option of widget.options ?? []; track option) {
+                                <option [value]="option" [selected]="option === result.display">
+                                  {{ option }}
+                                </option>
+                              }
+                            </select>
+                          } @else {
+                            @if (widget.type === 'range') {
+                              <button
+                                type="button"
+                                class="widget-step"
+                                aria-label="Decrease"
+                                [disabled]="!kernelRunning() || !!result.widgetError || !!widget.disabled || !!widget.loading"
+                                (click)="$event.preventDefault(); stepTileWidget(id, widget, -1)"
+                              >‹</button>
+                            }
+                            <input
+                              [type]="widget.type"
+                              [attr.aria-label]="widgetLabel(id, widget)"
+                              [placeholder]="widget.placeholder ?? ''"
+                              [value]="widgetDraftFor(id) ?? (widget.type === 'text' ? result.value ?? '' : result.value)"
+                              [attr.min]="widget.min ?? null"
+                              [attr.max]="widget.max ?? null"
+                              [attr.step]="widget.step ?? (widget.type === 'range' ? 'any' : null)"
+                              [disabled]="!kernelRunning() || !!result.widgetError || !!widget.disabled || !!widget.loading"
+                              (input)="inputTileWidget($event, id, widget)"
+                              (change)="changeTileWidget($event, id, widget)"
+                            />
+                            @if (widget.type === 'range') {
+                              <button
+                                type="button"
+                                class="widget-step"
+                                aria-label="Increase"
+                                [disabled]="!kernelRunning() || !!result.widgetError || !!widget.disabled || !!widget.loading"
+                                (click)="$event.preventDefault(); stepTileWidget(id, widget, 1)"
+                              >›</button>
+                            }
+                          }
+                          @if (widget.type === 'range') {
+                            <output [title]="widgetDraftFor(id) ?? result.display">{{ widgetDraftFor(id) ?? result.display }}</output>
+                          }
+                        </label>
+                        }
+                      } @else if (tileKpi(id); as kpi) {
+                        <strong class="tile-kpi">{{ kpi }}</strong>
+                      } @else {
+                        <span class="cell-value">{{ result.display }}</span>
+                      }
+      </ng-template>
+      <ng-template #graphNode let-node let-pane="pane">
+              <div
+                class="graph-node" role="group" [attr.aria-label]="'Graph cell ' + node.id"
+                [class.with-output]="graphOutputsShown(pane.index) && graphHasOutput(node.id)"
+                [id]="pane.index < 0 ? 'graph-cell-' + node.id : 'pane-' + pane.index + '-graph-cell-' + node.id"
+                [attr.data-cell-id]="node.id"
+                [attr.data-cell-kind]="node.kind"
+                [attr.data-agent-cell-id]="node.id" [attr.data-agent-pane]="pane.index" data-agent-view="graph" [attr.data-agent-zoom]="pane.graphZoom"
+                [attr.data-agent-layout-key]="agentCellLayoutKey(definitionAt(node.id))" [attr.data-agent-layout-revision]="graph().workbookRevision ?? ''"
+                [attr.data-update-status]="updateTracingAvailable && traceUpdates() ? graph().updateTrace?.cells?.[node.id]?.status : null"
+                [class.trace-equal]="updateTracingAvailable && traceUpdates() && graph().updateTrace?.cells?.[node.id]?.status === 'equal'"
+                [class.trace-changed]="updateTracingAvailable && traceUpdates() && graph().updateTrace?.cells?.[node.id]?.status === 'changed'"
+                [class.error-origin]="graphErrors().get(node.id)?.origin === node.id"
+                [class.propagated-error]="graphErrors().get(node.id)?.origin != null && graphErrors().get(node.id)?.origin !== node.id"
+                [title]="graphErrors().get(node.id)?.message ?? ''"
+                [style.--graph-type-color]="graphTypeColor(node.kind)"
+                [ngClass]="cellClasses(node.id)"
+                [style.opacity]="cellTypeFocus() && !focusedTypeIds().has(node.id) ? 0.32 : null"
+                [class.focus-node]="node.relation === 'focus'"
+                [style.--cell-color]="cellHighlight(node.id)"
+                [style.left.px]="node.x"
+                [style.top.px]="node.y"
+                [style.width.px]="node.width"
+                [style.height.px]="node.height"
+                (click)="selectGridCell(node.id)"
+                (dblclick)="editCell(node.id)"
+              >
+                @if (agentActivity.feedback().get(node.id); as feedback) {
+                  <app-agent-cell-feedback [showOrigin]="agentActivity.showOrigins()" [feedback]="feedback" />
+                }
+                <button type="button" class="graph-node-title" [attr.aria-label]="'Inspect ' + (definitionAt(node.id)?.name || node.id)">
+                  {{ definitionAt(node.id)?.name ?? node.id }} <small>{{ node.id }}</small>
+                </button>
+                <div class="graph-node-meta">
+                  @if (updateTracingAvailable && traceUpdates() ? graph().updateTrace?.cells?.[node.id] : undefined; as update) {
+                    <small class="graph-update-badge" [title]="updateExplanation(update, node.kind)">
+                      <app-ui-icon [name]="updateStates[update.status].icon" />{{ updateStates[update.status].label }}
+                    </small>
+                  } @else { <app-cell-type-badge [kind]="node.kind" /> }
+                  @if (graphErrors().get(node.id); as problem) {
+                    <small class="graph-error-badge">{{ problem.origin === node.id ? 'Error origin' : problem.origin ? 'From ' + problem.origin : 'Error' }}</small>
+                  } @else {
+                  @if (graph()?.dependencyStates?.[node.id] === 'unobserved') {
+                    <small title="This cell has not evaluated; its live dependencies are not known yet">Not run</small>
+                  } @else if (graph()?.dependencyStates?.[node.id] === 'partial') {
+                    <small title="Evaluation failed; edges show only reads reached before the error">Partial</small>
+                  }
+                  @if (
+                    !(updateTracingAvailable && traceUpdates()) && resultAt(node.id)?.durationMs !== null &&
+                    resultAt(node.id)?.durationMs !== undefined
+                  ) {
+                    <small>{{ formatDuration(resultAt(node.id)?.durationMs) }}</small>
+                  }
+                    @if (node.isolated) { <small title="No observed dependencies or dependents">Unconnected</small> }
+                  }
+                </div>
+                @let result = resultAt(node.id);
+                @if (graphOutputsShown(pane.index) && graphHasOutput(node.id) && result) {
+                  <div class="graph-node-output" (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()"
+                    (pointerdown)="$event.stopPropagation()" (mousedown)="$event.stopPropagation()" (keydown)="$event.stopPropagation()" (wheel)="$event.stopPropagation()">
+                    <ng-container [ngTemplateOutlet]="renderedCellOutput" [ngTemplateOutletContext]="{$implicit:node.id, definition:definitionAt(node.id), result}" />
+                  </div>
+                } @else {
+                <strong>{{ graphErrors().get(node.id)?.message || resultAt(node.id)?.display || '—' }}
+                  @if (updateTracingAvailable && traceUpdates() ? graph().updateTrace?.cells?.[node.id] : undefined; as update) {
+                    @if (update.output === 'reused' && update.executions > 0) { <small title="Code ran, but an existing payload was reused for the same output object"> · Output reused</small> }
+                  }
+                </strong>
+                }
+                <button type="button" class="graph-node-resize" [graphNodeResize]="node" [graphResizeZoom]="pane.graphZoom"
+                  [attr.aria-label]="'Resize graph cell ' + node.id" (graphSizeChanged)="resizeGraphNode(pane.index, node.id, $event)"></button>
+              </div>
+      </ng-template>
+      <ng-template #graphEdge let-edge>
+                <svg:path
+                  [attr.d]="edge.path"
+                  [class.offscreen-edge]="edge.offscreen"
+                  [class.widget-configuration-edge]="graph().widgetDependencies?.[edge.to]?.includes(edge.from)"
+                  [class.update-trace-edge]="updateTracingAvailable && traceUpdates() && updateTraceIds().has(edge.from) && updateTraceIds().has(edge.to)"
+                  [class.upstream]="edge.relation === 'upstream'"
+                  [class.downstream]="edge.relation === 'downstream'"
+                  [class.highlighted]="edge.from === selectedId() || edge.to === selectedId()"
+                  [class.error-edge]="graphErrors().get(edge.from)?.origin != null && graphErrors().get(edge.from)?.origin === graphErrors().get(edge.to)?.origin"
+                  marker-end="url(#arrow)"
+                ></svg:path>
+      </ng-template>
+      <ng-template #graphPane let-pane><div class="graph-view">
+        <div class="graph-header">
+        <div class="graph-toolbar view-header" role="toolbar" aria-label="Graph view">
+          @if (pane.index < 0) {
+            <label class="graph-sheet-scope">Sheet
+              <select aria-label="Graph worksheet" [ngModel]="graphSheetValue(pane.index, pane.sheet)"
+                (ngModelChange)="setGraphSheet(pane.index, $event)">
+                <option value="*">All sheets</option>
+                @for (tab of sheetTabs(); track tab.prefix) { <option [value]="tab.prefix">{{ tab.name }}</option> }
+              </select>
+            </label>
+          }
+      <app-selection-navigation [canBack]="canNavigateBack()" [canForward]="canNavigateForward()" (back)="navigateSelection(-1)" (forward)="navigateSelection(1)" />
+          <app-cell-focus [kind]="cellTypeFocus()" (changed)="cellTypeFocus.set($event)" />
+          <label class="inline-toggle" title="Show only what feeds the selected cell and what it affects">
+            <input
+              type="checkbox"
+              [checked]="graphFocused(pane.index)"
+              (change)="unpinGraph(pane.index); setGraphFocus($any($event.target).checked)"
+            />
+            Focus on selection
+          </label>
+          @if (graphFocused(pane.index)) {
+            <select
+              aria-label="Steps from the selected cell"
+              [value]="graphDepthOption()"
+              (change)="unpinGraph(pane.index); setGraphDepth($any($event.target).value)"
+            >
+              <option value="1">1 step</option>
+              <option value="2">2 steps</option>
+              <option value="3">3 steps</option>
+              <option value="all">Whole chain</option>
+            </select>
+          }
+          <span class="graph-count" title="Edges show reads from the latest evaluation. Unobserved or failed cells may have incomplete dependencies.">
+            @if (pane.graph().hidden > 0) {
+              {{ pane.graph().nodes.length }} of {{ pane.graph().total }} cells
+            } @else {
+              {{ pane.graph().total }} cells
+            }
+          </span>
+          <span class="cell-toolbar-spacer"></span>
+          <app-view-options label="Graph view options">
+            <section class="options-section" aria-label="Layout"><h3>Layout</h3>
+          <button type="button" class="text-button graph-pin-button" [class.active]="graphIsPinned(pane.index)"
+            [attr.aria-pressed]="graphIsPinned(pane.index)" [attr.aria-label]="graphIsPinned(pane.index) ? 'Unpin graph view' : 'Pin graph view'"
+            title="Pin visible nodes, positions and connections while inspecting cells. Values stay live."
+            [disabled]="!graphIsPinned(pane.index) && pane.graph().nodes.length === 0"
+            (click)="toggleGraphPin(pane.index, pane.graph(), pane.sheet)">
+            <app-ui-icon name="pin" />{{ graphIsPinned(pane.index) ? 'Unpin view' : 'Pin view' }}
+          </button>
+          <label class="graph-sheet-scope">Direction
+            <select aria-label="Graph direction" [ngModel]="pane.graph().direction ?? 'horizontal'" (ngModelChange)="setGraphDirection(pane.index, $event)">
+              <option value="horizontal">Horizontal</option>
+              <option value="vertical">Vertical</option>
+            </select>
+          </label>
+          <label class="inline-toggle" title="Scroll each dependency level independently">
+            <input type="checkbox" aria-label="Scrollable graph levels" [checked]="graphScrollableLevels()" (change)="setGraphScrollableLevels($any($event.target).checked)" />
+            Scrollable levels
+          </label>
+          @if (graphScrollableLevels()) {
+            <label class="graph-sheet-scope" title="Show direct incoming and outgoing connections for the selected cell, or every connection">
+              Connections
+              <select aria-label="Graph connections" [ngModel]="graphConnections()" (ngModelChange)="setGraphConnections($event)">
+                <option value="selected">Selected cell</option>
+                <option value="all">All</option>
+              </select>
+            </label>
+          }
+          <label class="inline-toggle" title="Keep source inputs in the first level. Linked inputs with dependencies stay after their dependencies.">
+            <input type="checkbox" aria-label="Inputs first" [checked]="pane.graph().inputsFirst === true" (change)="setGraphInputsFirst(pane.index, $any($event.target).checked)" />
+            Inputs first
+          </label>
+          <label class="inline-toggle" title="Render input widgets, plots and rich outputs in graph nodes">
+            <input type="checkbox" [checked]="graphOutputsShown(pane.index)" (change)="unpinGraph(pane.index); setGraphOutputs($any($event.target).checked)" />
+            Show outputs
+          </label>
+            </section>
+            <section class="options-section" aria-label="Filters"><h3>Show</h3>
+          <label class="inline-toggle">
+            <input
+              type="checkbox"
+              [checked]="graphHideNotes()" [disabled]="graphErrorsOnly()"
+              (change)="unpinGraph(pane.index); setGraphHideNotes($any($event.target).checked)"
+            />
+            Hide notes
+          </label>
+              <app-graph-debug section="filters" [errors]="graphErrors()" [cells]="cells()" [selectedId]="selectedId()"
+                [hideText]="graphHideText()" [hideIsolated]="graphHideIsolated()" [errorsOnly]="graphErrorsOnly()"
+                (filterChanged)="unpinGraph(pane.index); setGraphFilter($event.kind, $event.enabled)" />
+            </section>
+            <section class="options-section graph-legend" aria-label="Legend"><h3>Legend</h3>
+              <div class="legend"><span class="swatch dependency"></span>Dependencies</div>
+              <div class="legend"><span class="swatch dependent"></span>Dependents</div>
+              <div class="legend"><span class="swatch markdown"></span>Markdown</div>
+              <div class="legend"><span class="swatch effect"></span>Effects</div>
+            </section>
+          </app-view-options>
+        </div>
+        @defer (on immediate) {
+          <app-graph-debug section="diagnostics" [errors]="graphErrors()" [cells]="cells()" [selectedId]="selectedId()"
+            [hideText]="graphHideText()" [hideIsolated]="graphHideIsolated()" [errorsOnly]="graphErrorsOnly()"
+            (filterChanged)="unpinGraph(pane.index); setGraphFilter($event.kind, $event.enabled)" (originRequested)="traceGraphOrigin($event, pane.index)"
+            (inspectRequested)="openLogCell($event)" (problemsRequested)="openProblems()" />
+        }
+        @if (updateTracingAvailable) {
+        @defer (on immediate) {
+          <app-update-trace [trace]="graph().updateTrace" [cells]="cells()" [selectedId]="selectedId()"
+            [enabled]="traceUpdates()" [pathTarget]="updateTracePath()?.id ?? null" [pathDirection]="updateTracePath()?.direction ?? null"
+            (enabledChange)="setTraceUpdates($event)" (clearPath)="updateTracePath.set(null)"
+            (traceRequested)="showUpdateTrace($event)" (inspectRequested)="inspectTraceCell($event)" />
+        }
+        }
+        @if (graphIsPinned(pane.index)) {
+          <div class="graph-pin-notice" role="status"><app-ui-icon name="pin" />Layout and connections pinned · values stay live. Unpin to follow changes.</div>
+        }
+        </div>
+        @if (graphScrollableLevels()) {
+          @defer (on immediate) {
+            <app-graph-levels [connections]="graphConnections()" [layout]="pane.graph()" [state]="graphLevelState(pane.index)" [zoom]="pane.graphZoom" [selectedId]="selectedId()"
+              [focused]="graphFocused(pane.index)" [nodeTemplate]="graphNode" [edgeTemplate]="graphEdge" [nodeContext]="pane"
+              (zoomChanged)="setPaneGraphZoom(pane.index, $event)" (cellRequested)="selectGridCell($event)" (panRequested)="startGraphPan($event.event, $event.viewport)" />
+          }
+        } @else {
+        <div
+          #graphViewport
+          class="graph-scroll"
+          [viewZoom]="pane.graphZoom" [viewZoomMin]="0.2" zoomContent=".graph-canvas"
+          (viewZoomChange)="setPaneGraphZoom(pane.index, $event)"
+          (pointerdown)="startGraphPan($event, graphViewport)"
+        >
+          @if (pane.graph().nodes.length === 0) {
+            <p class="graph-empty" role="status">No cells match these filters. Turn off a filter to show more cells.</p>
+          }
+          <div
+            class="graph-zoom-frame"
+            [style.width.px]="pane.graph().width * pane.graphZoom"
+            [style.height.px]="pane.graph().height * pane.graphZoom"
+          >
+          <div
+            class="graph-canvas"
+            [class.focused]="graphFocused(pane.index)"
+            [style.width.px]="pane.graph().width"
+            [style.height.px]="pane.graph().height"
+            [style.transform]="'scale(' + pane.graphZoom + ')'"
+          >
+            <svg
+              class="graph-edges"
+              [attr.width]="pane.graph().width"
+              [attr.height]="pane.graph().height"
+              aria-hidden="true"
+            >
+              <defs>
+                <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                  <path d="M0,0 L8,4 L0,8 z"></path>
+                </marker>
+              </defs>
+              @for (edge of pane.graph().edges; track edge.from + '-' + edge.to) {
+                <ng-container *ngTemplateOutlet="graphEdge; context:{$implicit:edge}" />
+              }
+            </svg>
+            @for (node of pane.graph().nodes; track node.id) {
+              <ng-container *ngTemplateOutlet="graphNode; context:{$implicit:node,pane:pane}" />
+            }
+          </div>
+          </div>
+        </div>
+        }
+        <app-zoom-control label="Graph zoom" [zoom]="pane.graphZoom" fitLabel="Fit the graph in view" fitTitle="Fit the graph in view"
+          (zoomOut)="setPaneGraphZoom(pane.index, pane.graphZoom / 1.2)" (reset)="setPaneGraphZoom(pane.index, 1)"
+          (zoomIn)="setPaneGraphZoom(pane.index, pane.graphZoom * 1.2)" (fit)="fitGraphFromToolbar($event, pane.graph(), pane.index)" />
+        </div></ng-template>
+      <ng-template #paneContent let-kind let-pane="pane">
+        <ng-container [ngTemplateOutlet]="kind === 'notes' ? notesPane : kind === 'sheet' ? cellsPane : graphPane" [ngTemplateOutletContext]="{ $implicit: pane }" />
+      </ng-template>
+      <div class="pane-workspace" [class.single-workspace]="viewMode() !== 'split'" [style.grid-template-columns]="splitGridTemplate()">
+        @for (view of visiblePanes(); track view.slot) {
+          @let kind = view.kind;
+          @let index = view.slot;
+          @if (viewMode() === 'split' && index === 1) {
+            <span class="split-resize-handle" role="separator" tabindex="0" aria-label="Resize workspace panes" [attr.aria-valuenow]="splitPosition()" aria-valuemin="25" aria-valuemax="75" (pointerdown)="startSplitResize($event)" (keydown)="resizeSplitWithKeyboard($event)"></span>
+          }
+          <section class="workspace-pane" appPaneActivation (paneActivated)="activateSplitPane(index)" [attr.aria-label]="kind === 'sheet' ? 'Cells pane' : kind === 'notes' ? 'Notes pane' : 'Graph pane'">
+            @if (viewMode() === 'split') {
+              <header class="pane-heading">
+                <select [attr.aria-label]="index === 0 ? 'Left pane view' : 'Right pane view'" [value]="kind" (change)="setSplitView(index, $any($event.target).value)">
+                  <option value="notes">Notes</option><option value="sheet">Cells</option><option value="graph">Graph</option>
+                </select>
+                @if (kind === 'graph') {
+                  <select [attr.aria-label]="index === 0 ? 'Left graph worksheet' : 'Right graph worksheet'"
+                    [ngModel]="graphSheetValue(index, workspacePanes()[index].sheet)" (ngModelChange)="setGraphSheet(index, $event)">
+                    <option value="*">All sheets</option>
+                    @for (tab of sheetTabs(); track tab.prefix) { <option [value]="tab.prefix">{{ tab.name }}</option> }
+                  </select>
+                } @else {
+                <select [attr.aria-label]="index === 0 ? 'Left pane sheet' : 'Right pane sheet'" [value]="workspacePanes()[index].sheet" (change)="setSplitSheet(index, $any($event.target).value)">
+                  @for (tab of sheetTabs(); track tab.prefix) { <option [value]="tab.prefix">{{ tab.name }}</option> }
+                </select>
+                }
+                @if (kind === 'notes') {
+                  <select [attr.aria-label]="index === 0 ? 'Left pane note' : 'Right pane note'" [value]="workspacePanes()[index].noteId" (change)="selectSplitNote($any($event.target).value, index)">
+                    @for (note of workspacePanes()[index].notes; track note.id) { <option [value]="note.id">{{ noteTitle(note) }}</option> }
+                  </select>
+                }
+              </header>
+            }
+            <ng-container [ngTemplateOutlet]="paneContent" [ngTemplateOutletContext]="{ $implicit: kind, pane: view.pane }" />
+          </section>
+        }
+      </div>
+
+    </section>
+
+    @if (cellContextMenu(); as menu) {
+      <div
+        class="cell-context-menu"
+        role="menu"
+        [appKeepInView]="menu"
+        (click)="$event.stopPropagation()"
+      >
+        <strong>{{ definitionAt(menu.cellId)?.name || menu.cellId }}</strong>
+        <button type="button" role="menuitem" (click)="inspectContextCell(menu.cellId)">
+          Inspect / edit
+        </button>
+        @if (canCancelResource(menu.cellId)) {
+          <button type="button" role="menuitem" [disabled]="cancellingResources().has(menu.cellId)"
+            (click)="cancelResource(menu.cellId); closeCellContextMenu()"><app-ui-icon name="stop" />Cancel load</button>
+        }
+        @if (!definitionAt(menu.cellId) && !hasCellDraft(menu.cellId)) {
+          <button type="button" role="menuitem" [disabled]="!kernelRunning()" (click)="createWorksheetText(menu.cellId)">
+            Text / heading
+          </button>
+        }
+        @if (definitionAt(menu.cellId); as menuCell) {
+          @if (isNotePage(menuCell)) {
+            <button type="button" role="menuitem" (click)="closeCellContextMenu(); openInNotes(menu.cellId)">
+              Open in Notes
+            </button>
+          }
+        }
+        @if (selectedIds().size > 1 && selectedIds().has(menu.cellId) && collectableSelection().length > 0) {
+          <button type="button" role="menuitem" (click)="collectSelection('list')">
+            Collect {{ collectableSelection().length }} cells as list
+          </button>
+          <button type="button" role="menuitem" (click)="collectSelection('dict')">
+            Collect {{ collectableSelection().length }} cells as dict
+          </button>
+        }
+        <button type="button" role="menuitem" (click)="copyContextCellReference(menu.cellId)">
+          Copy reference
+        </button>
+        @if (definitionAt(menu.cellId)) {
+          <button type="button" role="menuitem" (click)="cutSelection()">
+            Cut {{ selectedIds().size > 1 ? selectedIds().size + ' cells' : '' }} (⌘/Ctrl+X)
+          </button>
+        }
+        @if (cutCells(); as cut) {
+          <button type="button" role="menuitem" (click)="pasteCutCells(menu.cellId)">
+            Paste {{ cut.ids.length }} cell{{ cut.ids.length === 1 ? '' : 's' }} here (⌘/Ctrl+V)
+          </button>
+        }
+        @if (definitionAt(menu.cellId)) {
+          <div class="cell-color-menu" aria-label="Cell highlight color">
+            @for (color of cellColors; track color) {
+              <button
+                type="button"
+                class="color-swatch"
+                [style.background]="color"
+                [attr.aria-label]="'Highlight cell ' + color"
+                [class.active]="definitionAt(menu.cellId)?.color === color"
+                (click)="setCellColor(menu.cellId, color)"
+              ></button>
+            }
+            <button
+              type="button"
+              class="clear-color"
+              aria-label="Remove cell highlight"
+              title="Remove highlight"
+              (click)="setCellColor(menu.cellId, '')"
+            >
+              ×
+            </button>
+          </div>
+        }
+        @if (definitionAt(menu.cellId)?.kind === 'effect') {
+          <button
+            type="button"
+            role="menuitem"
+            (click)="runEffect(menu.cellId); closeCellContextMenu()"
+          >
+            Run effect
+          </button>
+          <button type="button" role="menuitem" (click)="toggleContextEffect(menu.cellId)">
+            {{ definitionAt(menu.cellId)?.enabled ? 'Disable effect' : 'Enable effect' }}
+          </button>
+        }
+        <button type="button" role="menuitem" (click)="addRow(); closeCellContextMenu()">
+          Add row
+        </button>
+        <button type="button" role="menuitem" (click)="addColumn(); closeCellContextMenu()">
+          Add column
+        </button>
+        @if (hasCellDraft(menu.cellId)) {
+          <button type="button" role="menuitem" (click)="discardCellDraft(menu.cellId); closeCellContextMenu()">
+            Discard draft
+          </button>
+        }
+        @if (definitionAt(menu.cellId) || hasCellDraft(menu.cellId)) {
+          <button
+            type="button"
+            role="menuitem"
+            class="danger"
+            (click)="clearContextCell(menu.cellId)"
+          >
+            Clear cell
+          </button>
+        }
+      </div>
+    }
+
+    @if (viewMode() === 'notes' && notesSidebarCollapsed()) {
+      <aside class="notes-sidebar collapsed" aria-label="Notes (collapsed)">
+        <button
+          class="icon-button"
+          type="button"
+          aria-label="Show the notes list"
+          aria-expanded="false"
+          [title]="'Show the notes list (' + notePages().length + ')'"
+          (click)="toggleNotesSidebar()"
+        >
+          <app-ui-icon name="sidebar" />
+        </button>
+        <button
+          class="icon-button new-note-button"
+          type="button"
+          aria-label="New note"
+          title="New note"
+          (click)="createNote()"
+        >
+          <app-ui-icon name="plus" />
+        </button>
+      </aside>
+    } @else if (viewMode() === 'notes') {
+      <aside class="notes-sidebar" aria-label="Notes in this sheet">
+        <div class="notes-sidebar-heading">
+          <button
+            class="icon-button collapse-notes-button"
+            type="button"
+            aria-label="Hide the notes list"
+            aria-expanded="true"
+            title="Hide the notes list"
+            (click)="toggleNotesSidebar()"
+          >
+            <app-ui-icon name="sidebar" />
+          </button>
+          <h2>Notes <span class="count">{{ notePages().length }}</span></h2>
+          <button
+            class="icon-button new-note-button"
+            type="button"
+            aria-label="New note"
+            title="New note"
+            (click)="createNote()"
+          >
+            <app-ui-icon name="plus" />
+          </button>
+          <button
+            class="icon-button export-notes-button"
+            type="button"
+            aria-label="Print or export notes"
+            title="Print or export notes (Markdown, HTML)"
+            [disabled]="notePages().length === 0"
+            (click)="openExportDialog()"
+          >
+            <app-ui-icon name="export" />
+          </button>
+        </div>
+        <div class="note-list-tools">
+          <input
+            class="note-search"
+            type="search"
+            placeholder="Search notes"
+            aria-label="Search notes"
+            [value]="noteQuery()"
+            (input)="noteQuery.set($any($event.target).value)"
+          />
+          <select
+            class="note-sort"
+            aria-label="Sort notes"
+            title="Sort notes — drag notes (or Alt+↑/↓) to arrange them manually"
+            [value]="noteSort()"
+            (change)="setNoteSort($any($event.target).value)"
+          >
+            <option value="manual">Manual</option>
+            <option value="title">Title A–Z</option>
+            <option value="sheet">Sheet order</option>
+          </select>
+        </div>
+        <app-note-tree [notes]="treeNotes()" [parents]="validNoteParents()" [selected]="activeNoteId()" [query]="noteQuery()" (picked)="selectNote($event)" (reparented)="organizeNote($event.id, $event.parent)" (reordered)="organizeNote($event.id, $event.parent, $event.before)" (contextRequested)="openNoteContextMenu($event)" />
+        @if (definitionAt(activeNoteId())?.kind === 'markdown' && notesEditing()) {
+          <div class="note-sidebar-actions">
+            <span class="note-save-hint" title="Saving writes all notes and cells to one .workbook.py file">
+              Edits apply as you type
+            </span>
+            <button class="text-button danger" type="button" (click)="deleteSelectedNote()">
+              Delete note
+            </button>
+          </div>
+        }
+      </aside>
+    }
+
+    @if (noteContextMenu(); as menu) {
+      <div class="cell-context-menu note-context-menu" role="menu" aria-label="Note actions" tabindex="-1" [appKeepInView]="menu" (click)="$event.stopPropagation()">
+        <button type="button" role="menuitem" [disabled]="!kernelRunning()" (click)="noteContextMenu.set(null); createSubnote(menu.id)"><app-ui-icon name="plus" /> Add subnote</button>
+        <button type="button" role="menuitem" class="danger" [disabled]="!kernelRunning()" (click)="noteContextMenu.set(null); deleteNote(menu.id)"><app-ui-icon name="trash" /> Delete note</button>
+      </div>
+    }
+
+    <aside
+      class="inspector" id="cell-inspector" aria-label="Cell inspector"
+      [class.workspace-hidden]="!inspectorVisible()"
+    >
+      <span
+        class="sidebar-resize-handle"
+        role="separator"
+        aria-label="Resize inspector sidebar"
+        (pointerdown)="startSidebarResize($event)"
+      ></span>
+      <div class="inspector-heading">
+        <div>
+          <span class="eyebrow">Selected cell</span>
+          <h2>{{ selectedId() }}</h2>
+          <app-agent-cell-feedback [showOrigin]="agentActivity.showOrigins()" [inline]="true" [feedback]="agentActivity.feedback().get(selectedId()) ?? null" />
+        </div>
+        <span class="type-badge">{{ editorKind === 'markdown' ? (selectedMarkdownIsPage() ? 'Note page' : 'Text / heading') : editorKind }}</span>
+        @if (definitionAt(selectedId()); as current) {
+          @if (isNotePage(current) && viewMode() !== 'notes') {
+            <button
+              class="secondary-button open-note-button"
+              type="button"
+              title="Open this note page in Notes"
+              (click)="openInNotes(current.id)"
+            >
+              Open in Notes
+            </button>
+          }
+        }
+        @if (inspectorVisible()) {
+          <button
+            class="inspector-close"
+            type="button"
+            aria-label="Close inspector"
+            title="Close inspector"
+            (click)="closeSplitInspector()"
+          >
+            ×
+          </button>
+        }
+      </div>
+
+      <fieldset [disabled]="!workbookEditing()" style="display: contents">
+      <label class="field-label" for="inspector-kind">Cell type</label>
+      <div class="cell-type-select" [style.--cell-kind-color]="cellTypes[editorKind].color">
+        <app-ui-icon [name]="cellTypes[editorKind].icon" />
+        <select id="inspector-kind" class="field-control" [(ngModel)]="editorKind" [disabled]="(!kernelRunning() || !workbookEditing())">
+          @for (type of cellTypeOptions; track type.kind) {
+            <option [value]="type.kind">{{ type.kind === 'markdown' ? (selectedMarkdownIsPage() ? 'Note page' : 'Text / heading') : type.label }}</option>
+          }
+        </select>
+      </div>
+
+      @if (editorKind === 'input') {
+        @if (definitionAt(selectedId()); as current) {
+          @if (current.kind === 'input') {
+            <label class="inline-toggle" for="save-input-value">
+              <input id="save-input-value" type="checkbox" [checked]="current.saveValue !== false"
+                [disabled]="(!kernelRunning() || !workbookEditing()) || runtime.status() === 'running'"
+                (change)="setSaveInputValue(current.id, $any($event.target).checked)" />
+              Save runtime value in Python file
+            </label>
+            @if (current.saveValue === false) {
+              <p class="empty-note">Action and effect writes stay in memory. Saving keeps the initialization code below; reopening runs it again. For existing large literals, replace that code with a small default such as []. Output snapshots are configured separately in Settings.</p>
+            }
+          }
+        }
+      }
+
+      @if (editorKind === 'markdown') {
+        @if (definitionAt(selectedId()); as current) {
+          @if (current.kind === 'markdown') {
+            <div class="markdown-role-setting">
+              <label class="inline-toggle" for="show-in-notes">
+                <input id="show-in-notes" type="checkbox" [checked]="isNotePage(current)"
+                  (change)="setNotePage(current.id, $any($event.target).checked)" />
+                Show in Notes
+              </label>
+              <p>{{ isNotePage(current) ? 'Note page · listed in the Notes sidebar.' : 'Worksheet text · headings, labels, and explanations in the grid.' }}</p>
+            </div>
+          }
+        }
+      }
+
+      @if (definitionAt(selectedId()); as linkedCell) {
+        @if (linkedCell.kind === 'linked') {
+          <app-linked-input [cellId]="linkedCell.id" [value]="resultAt(linkedCell.id)?.value" [override]="linkedCell.override" [runtimeOverride]="resultAt(linkedCell.id)?.runtimeOnlyInput === true" [readOnly]="(!kernelRunning() || !workbookEditing())" (changed)="overrideLinkedInput(linkedCell.id, $event)" (reset)="resetLinkedInput(linkedCell.id)" />
+        }
+      }
+
+      <label class="field-label" for="inspector-name">Cell label</label>
+      <input
+        id="inspector-name"
+        class="field-control"
+        [readonly]="(!kernelRunning() || !workbookEditing())"
+        [(ngModel)]="editorName"
+        placeholder="descriptive_name"
+        autocomplete="off"
+        spellcheck="false"
+        (keydown.enter)="$event.preventDefault(); $event.stopPropagation(); workbookEditing() && applyCell()"
+      />
+      <p class="empty-note environment-note">
+        Use this stable label in formulas and notes instead of {{ selectedId() }}.
+      </p>
+      @if ((editorKind === 'formula' || editorKind === 'linked')) {
+        <label class="field-label" for="inspector-annotation">Type hint</label>
+        <input
+          id="inspector-annotation"
+          class="field-control type-hint-input"
+          [readonly]="(!kernelRunning() || !workbookEditing())"
+          [(ngModel)]="editorAnnotation"
+          placeholder="optional: float, list[str], pd.DataFrame"
+          autocomplete="off"
+          spellcheck="false"
+          (keydown.enter)="$event.preventDefault(); $event.stopPropagation(); workbookEditing() && applyCell()"
+        />
+        <p class="empty-note environment-note">
+          What this cell's value is. Type checking compares it with the formula and with the
+          cells that read {{ editorName || selectedId() }}.
+        </p>
+      }
+
+      @if (editorKind === 'resource') {
+        <label class="field-label" for="resource-parameters-mode">Resource parameters</label>
+        <select id="resource-parameters-mode" class="field-control" [(ngModel)]="editorResourceExplicit" [disabled]="(!kernelRunning() || !workbookEditing())">
+          <option [ngValue]="false">Automatic · snapshot referenced cells</option>
+          <option [ngValue]="true">Explicit · synchronous Python</option>
+        </select>
+        @if (editorResourceExplicit) {
+          <app-python-editor [value]="editorParams" (valueChange)="editorParams = $event"
+            [completions]="pythonCompletions()" [referencesEnabled]="true" (referenceNavigate)="openReferencedCell($event)" [diagnostics]="parameterEditorDiagnostics()" [readOnly]="(!kernelRunning() || !workbookEditing())" ariaLabel="Resource parameters"
+            (commit)="workbookEditing() && applyCell()" />
+          <p class="empty-note environment-note">Return a parameter value, or None to stay idle. The async code reads the captured value as params. Put cell references here.</p>
+        } @else {
+          <p class="empty-note environment-note">Referenced cells are captured before loading. For conditional requests or an idle state, choose explicit parameters.</p>
+        }
+      }
+
+      @if (editorKind === 'linked') {
+        <label class="field-label">Computation (optional)</label>
+        <app-python-editor [value]="editorComputation" (valueChange)="editorComputation = $event"
+          [placeholder]="'# Example: Source is the maximum page number\n1 if previous is None else min(source, previous.value)'"
+          [completions]="pythonCompletions()" [referencesEnabled]="true" (referenceNavigate)="openReferencedCell($event)"
+          [diagnostics]="computationEditorDiagnostics()" [readOnly]="(!kernelRunning() || !workbookEditing())" ariaLabel="Linked computation" (commit)="workbookEditing() && applyCell()" />
+        <p class="empty-note environment-note">Leave empty to use the source as the value. Otherwise, return the new value using source and previous.value / previous.source. previous is None on the first computation; its value includes manual overrides. Only source reads trigger recomputation.</p>
+      }
+
+
+      <label class="field-label" for="inspector-color">Cell highlight / fallback</label>
+      <div class="inspector-color-control">
+        <input
+          id="inspector-color"
+          type="color"
+          [value]="editorColor || '#cde7ae'"
+          (input)="editorColor = $any($event.target).value"
+        />
+        <button type="button" class="secondary-button" (click)="editorColor = ''">No color</button>
+      </div>
+
+
+      @if (definitionAt(selectedId()); as current) {
+        <span class="field-label">Grid tile</span>
+        <div class="tile-settings">
+          <label class="inline-toggle">
+            <input
+              type="checkbox"
+              [checked]="isRendered(current)"
+              (change)="setRendered(current.id, $any($event.target).checked)"
+            />
+            Show rendered in the grid (plot, table, note, widget, KPI)
+          </label>
+          @if (current.kind !== 'markdown') {
+            <label class="inline-toggle">
+              <input
+                type="checkbox"
+                [checked]="rendersMarkdown(current.id)"
+                (change)="setCellMarkdown(current.id, $any($event.target).checked)"
+              />
+              Render text results as Markdown
+            </label>
+          }
+          <div class="tile-span-row">
+            <span>Covers {{ spanLabel(current) }} cells</span>
+            @if (current.view?.span) {
+              <button type="button" class="secondary-button" (click)="resetSpan(current.id)">
+                Reset size
+              </button>
+            } @else {
+              <small>Drag the tile's corner handle to span more cells.</small>
+            }
+          </div>
+          @if ((current.kind === 'input' || current.kind === 'linked')) {
+            <label class="tile-widget-setting">
+              Widget
+              <select
+                [value]="current.view?.widget?.type ?? 'auto'"
+                [disabled]="(!kernelRunning() || !workbookEditing())"
+                (change)="setTileWidget(current.id, $any($event.target).value)"
+              >
+                <option value="auto">Auto (from value)</option>
+                <option value="number">Number</option>
+                <option value="range">Slider</option>
+                <option value="checkbox">Checkbox</option>
+                <option value="select">Dropdown</option>
+                <option value="text">Text</option>
+                <option value="file">File path</option>
+                <option value="folder">Folder path</option>
+                <option value="textarea">Long text</option>
+                <option value="date">Date</option>
+                <option value="list">List (add / remove)</option>
+                <option value="radio">Single choice (radio buttons)</option>
+                <option value="multiselect">Multiple choice</option>
+                <option value="button">Button</option>
+              </select>
+            </label>
+            @if (current.view?.widget) {
+              <label class="tile-widget-setting">Label
+                <input type="text" placeholder="Text or =Python expression" [readonly]="(!kernelRunning() || !workbookEditing())"
+                  [value]="widgetSettingText(current.view?.widget, 'label')"
+                  (change)="setWidgetPresentation(current.id, 'label', $any($event.target).value)" />
+              </label>
+              @if (isDebouncedWidget(current.view?.widget?.type)) {
+                <label class="tile-widget-setting">Update delay (ms)
+                  <input type="number" min="0" max="10000" step="50" inputmode="numeric"
+                    [placeholder]="current.view?.widget?.type === 'range' ? '150 (default)' : 'On Enter (default)'"
+                    [readonly]="(!kernelRunning() || !workbookEditing())"
+                    [value]="current.view?.widget?.debounce ?? ''"
+                    (change)="setWidgetDebounce(current.id, $any($event.target).value)" />
+                </label>
+                <small class="tile-widget-hint">Wait after the last change before the cell updates while editing.
+                  0 applies every change instantly; empty uses the default.</small>
+              }
+              @if (current.view?.widget?.type === 'button') {
+                <label class="tile-widget-setting">Button behavior
+                  <select [value]="current.view?.widget?.buttonMode ?? 'count'" [disabled]="(!kernelRunning() || !workbookEditing())"
+                    (change)="setButtonMode(current.id, $any($event.target).value)">
+                    <option value="count">Count clicks</option><option value="toggle">Toggle Boolean input</option><option value="action" [disabled]="availableActions().length === 0">Run action</option>
+                  </select>
+                </label>
+                @if (current.view?.widget?.buttonMode === 'action' || current.view?.widget?.action) {
+                  <label class="tile-widget-setting"><input type="checkbox" [checked]="current.view?.widget?.cancelWhileRunning === true" [disabled]="(!kernelRunning() || !workbookEditing())" (change)="setButtonCancellation(current.id, $any($event.target).checked)" /> Run / Cancel while running</label>
+                  <label class="tile-widget-setting">Action
+                    <select [ngModel]="current.view?.widget?.action ?? ''" [disabled]="(!kernelRunning() || !workbookEditing())" (ngModelChange)="setButtonAction(current.id,$event)">
+                      @for (method of availableActions(); track method.name) {<option [value]="method.name">{{method.label || method.name}}</option>}
+                    </select>
+                  </label>
+                  @if (actionResult(current.view?.widget?.action); as method) {
+                    <app-action-arguments [parameters]="method.parameters" [bindings]="current.view?.widget?.actionArguments ?? {}" [cells]="cells()" [disabled]="(!kernelRunning() || !workbookEditing())" (changed)="setButtonArguments(current.id,$event)" />
+                    <button type="button" class="text-button" [disabled]="(!kernelRunning() || !workbookEditing())" (click)="setButtonArguments(current.id,{})">Reset button arguments</button>
+                  }
+                }
+                <button type="button" class="text-button" (click)="openActions(current.view?.widget?.action)">Manage actions</button>
+              }
+              <details class="widget-state-settings">
+                <summary>Visibility and state</summary>
+                <label class="tile-widget-setting">Placeholder
+                  <input type="text" placeholder="Text or =Python expression" [readonly]="(!kernelRunning() || !workbookEditing())"
+                    [value]="widgetSettingText(current.view?.widget, 'placeholder')"
+                    (change)="setWidgetPresentation(current.id, 'placeholder', $any($event.target).value)" />
+                </label>
+                @for (key of widgetStateFields; track key) {
+                  @if (key !== 'pressed' || current.view?.widget?.type === 'button') {
+                    <label class="tile-widget-setting">{{ key }}
+                      <input type="text" [placeholder]="key === 'visible' ? 'Default: True · or =expression' : 'Default: False · or =expression'" [readonly]="(!kernelRunning() || !workbookEditing())"
+                        [value]="widgetSettingText(current.view?.widget, key)"
+                        (change)="setWidgetPresentation(current.id, key, $any($event.target).value)" />
+                    </label>
+                  }
+                }
+                <p class="empty-note environment-note">Settings can read cells. Loading disables interaction. Hidden or disabled controls keep their values.</p>
+              </details>
+            }
+            @if (current.view?.widget?.type === 'range' || current.view?.widget?.type === 'number') {
+              <div class="tile-widget-range">
+                @for (key of ['min', 'max', 'step']; track key) {
+                  <label>
+                    {{ key }}
+                    <input
+                      type="text"
+                      placeholder="Number or cell expression"
+                      [readonly]="(!kernelRunning() || !workbookEditing())"
+                      [value]="$any(current.view?.widget)?.[key] ?? ''"
+                      (change)="setTileWidgetOption(current.id, $any(key), $any($event.target).value)"
+                    />
+                  </label>
+                }
+              </div>
+            }
+            @if (current.view?.widget?.type === 'select' || current.view?.widget?.type === 'multiselect' || current.view?.widget?.type === 'radio') {
+              <label class="tile-widget-setting">
+                Options
+                <input
+                  type="text"
+                  placeholder="Jan, Feb, Mar or =choices"
+                  [readonly]="(!kernelRunning() || !workbookEditing())"
+                  [value]="widgetOptionsText(current.view?.widget)"
+                  (change)="setTileWidgetOption(current.id, 'options', $any($event.target).value)"
+                />
+              </label>
+            }
+          }
+        </div>
+      }
+      <details class="inspector-advanced">
+        <summary>Advanced · equality, reactive colour</summary>
+      @if (editorKind !== 'effect') {
+        <label class="field-label" for="inspector-equality">Equality</label>
+        <select id="inspector-equality" class="field-control" [disabled]="(!kernelRunning() || !workbookEditing())"
+          [ngModel]="equalityMode()" (ngModelChange)="setEqualityMode($event)">
+          <option value="default">Default · identity (same object)</option>
+          <option value="value">Value and type</option>
+          <option value="identity">Explicit identity · same object</option>
+          <option value="always">Always treat as changed</option>
+          <option value="custom">Custom Python function</option>
+        </select>
+        @if (equalityMode() === 'custom') {
+          <app-python-editor [value]="editorEqual" (valueChange)="editorEqual = $event"
+            [readOnly]="(!kernelRunning() || !workbookEditing())" ariaLabel="Equality function" />
+        }
+        <p class="empty-note environment-note">Return True to keep the previous value and skip dependent updates.
+          @if (equalityMode() === 'custom') { Use a lambda or a shared-code function taking previous and current values. Comparisons do not track dependencies. }</p>
+      }
+      <app-cell-color-expression [cellId]="selectedId()" [expression]="definitionAt(selectedId())?.view?.color?.expr ?? ''"
+        [error]="definitionAt(selectedId())?.view?.color ? (resultAt(selectedId())?.colorError ?? '') : ''" [enabled]="kernelRunning() && !!definitionAt(selectedId())"
+        [completions]="pythonCompletions()" (applied)="setCellColorExpression(selectedId(), $event, editorColor)" />
+      </details>
+
+      @if ((!kernelRunning() || !workbookEditing())) {
+        <p class="read-only-note" role="status">
+          Read-only · {{ !workbookEditing() ? 'Switch the workbook to Edit mode in the top bar.' : kernelNotice().busy ? 'Python is starting. Editing will be available when it is ready.' : 'Use ' + kernelNotice().action + ' above to enable editing.' }}
+        </p>
+      }
+      <div class="inspector-source">
+        <div class="source-heading">
+          <label class="field-label" for="inspector-source">
+            {{ editorKind === 'markdown' ? 'Markdown source' : 'Python source' }}
+            @if ((editorKind === 'formula' || editorKind === 'linked')) {
+              <span class="field-hint">Expression, or statements whose final line is the output</span>
+            }
+            <span class="field-hint">Shift+Enter or Ctrl/Cmd+Enter to apply · Tab indents</span>
+          </label>
+          <button
+            class="text-button editor-expand-toggle"
+            type="button"
+            [attr.aria-pressed]="editorExpanded()"
+            [title]="editorExpanded() ? 'Back to the normal sidebar' : 'A wide sidebar with a tall editor; the grid stays clickable'"
+            (click)="toggleEditorExpanded()"
+          >
+            {{ editorExpanded() ? '⤡ Smaller editor' : '⤢ Larger editor' }}
+          </button>
+        </div>
+        @if (editorKind === 'markdown') {
+          <app-python-editor
+            id="inspector-source"
+            class="inspector-code-editor"
+            language="markdown"
+            [value]="editorSource"
+            [completions]="pythonCompletions()"
+            ariaLabel="Markdown cell source"
+            (valueChange)="updateEditorSource($event)"
+            [readOnly]="(!kernelRunning() || !workbookEditing())"
+            (commit)="workbookEditing() && applyCell()"
+            [diagnostics]="selectedEditorDiagnostics()"
+            #codeEditor
+            (focusChange)="$event && codeEditorFocused(codeEditor)"
+          />
+          <div class="pick-cells-row">
+            <ng-container *ngTemplateOutlet="pickCells; context: { $implicit: codeEditor }" />
+            <span class="field-hint">
+              {{ referenceEditor() !== null ? 'Click cells to insert references · Esc to finish' : 'Pick cells' }}
+            </span>
+          </div>
+        } @else {
+          <app-python-editor
+            id="inspector-source"
+            class="inspector-code-editor"
+            [value]="editorSource"
+            [completions]="pythonCompletions()"
+            [languageService]="editorLanguageService"
+            [referencesEnabled]="true"
+            (referenceNavigate)="openReferencedCell($event)"
+            ariaLabel="Python cell source"
+            (valueChange)="updateEditorSource($event)"
+            [readOnly]="(!kernelRunning() || !workbookEditing())"
+            (commit)="workbookEditing() && applyCell()"
+            [diagnostics]="selectedEditorDiagnostics()"
+            #codeEditor
+            (focusChange)="$event && codeEditorFocused(codeEditor)"
+          />
+          <div class="pick-cells-row">
+            <ng-container *ngTemplateOutlet="pickCells; context: { $implicit: codeEditor }" />
+            <span class="field-hint">
+              {{ referenceEditor() !== null ? 'Click cells to insert references · Esc to finish' : 'Pick cells' }}
+            </span>
+          </div>
+        }
+      </div>
+
+      @if (editorKind === 'effect') {
+        <label class="field-label" for="effect-trigger">Trigger mode</label>
+        <select id="effect-trigger" class="field-control" [(ngModel)]="editorTrigger">
+          <option value="auto">Automatic when dependencies change</option>
+          <option value="manual">Manual run only</option>
+        </select>
+      }
+
+      @if (selectedTypeFindings().length > 0) {
+        <ul class="type-findings" aria-label="Type checking">
+          @for (finding of selectedTypeFindings(); track $index) {
+            <li [class]="finding.severity" [title]="finding.detail">
+              <span class="type-finding-line">line {{ finding.line ?? 1 }}</span>
+              {{ finding.message }}
+            </li>
+          }
+        </ul>
+      }
+      <div class="editor-actions">
+        <button class="secondary-button" type="button" (click)="discardCellDraft()"
+          [disabled]="!hasCellDraft(selectedId())" title="Restore the applied cell, or empty a new cell">
+          <app-ui-icon name="undo" /> Discard draft
+        </button>
+        <button
+          class="primary-button grow"
+          type="button"
+          [disabled]="(!kernelRunning() || !workbookEditing())"
+          (click)="workbookEditing() && applyCell()"
+        >
+          Apply
+        </button>
+        <button
+          class="secondary-button"
+          type="button"
+          (click)="deleteSelected()"
+          [disabled]="((!kernelRunning() || !workbookEditing()) && definitionAt(selectedId()) !== undefined) || (definitionAt(selectedId()) === undefined && !hasCellDraft(selectedId()))"
+        >
+          Clear
+        </button>
+      </div>
+
+      </fieldset>
+      @if (canCancelResource(selectedId())) {
+        <div class="resource-load-controls">
+          <span>Loading resource…</span>
+          <button type="button" class="secondary-button" [disabled]="cancellingResources().has(selectedId())"
+            (click)="cancelResource(selectedId())"><app-ui-icon name="stop" />{{ cancellingResources().has(selectedId()) ? 'Cancelling…' : 'Cancel load' }}</button>
+        </div>
+      }
+      @if (resourceCancelMessage(); as message) {
+        @if (message.id === selectedId()) { <p class="field-hint resource-cancel-message" role="status">{{ message.text }}</p> }
+      }
+
+      @if (selectedResult(); as result) {
+        @if (updateTracingAvailable) {
+        @defer (on immediate) {
+          <app-update-trace [trace]="graph().updateTrace" [cells]="cells()" [selectedId]="selectedId()" [controls]="false"
+            (traceRequested)="showUpdateTrace($event)" (inspectRequested)="openReferencedCell($event)" />
+        }
+        }
+        <div class="value-card" [class.has-error]="result.error">
+          <span class="eyebrow">
+            Evaluated value · {{ result.valueType }}
+            @if (result.runtimeOnlyInput) { <small title="This Python value is kept in the running kernel. Saving retains the input initialization code; reopening runs that code again."> · Runtime value</small> }
+            @if (result.resourceStatus) {
+              · {{ result.resourceStatus }}
+            }
+            @if (result.durationMs !== null && result.durationMs !== undefined) {
+              · {{ formatDuration(result.durationMs) }}
+            }
+            @if (showCellMemory()) { <app-cell-memory [measurement]="cellMemory()[result.id]" /> }
+            @if (timerTitle(result.id); as timer) {
+              <span class="timer-note">◷ {{ timer }}</span>
+            }
+          </span>
+          @if (result.richOutput; as output) {
+            <strong>{{ isPlotlyOutput(output) ? 'Interactive chart' : isHtmlOutput(output) ? 'HTML output' : isAnywidgetOutput(output) ? 'Widget output' : 'Image output' }}</strong>
+            <p>View this output in the worksheet or Notes.</p>
+          } @else if (result.table; as table) {
+            <strong>{{ table.kind }} · {{ tableSummary(table) }}</strong>
+            <p>View this table in the worksheet or Notes.</p>
+          } @else if (result.artifact; as artifact) {
+            <strong>{{ artifact.filename }}</strong>
+            <p class="artifact-meta">{{ artifact.mimeType }} · {{ artifactSize(artifact.size) }}</p>
+            <button class="secondary-button artifact-download-button" type="button" (click)="downloadArtifact(artifact)">
+              Download
+            </button>
+          } @else if (editorKind === 'markdown' && !result.error) {
+            <button class="copy-markdown-button" type="button" (click)="copyMarkdownOutput()">
+              {{ markdownCopied() ? 'Copied' : 'Copy Markdown' }}
+            </button>
+            <strong>{{ selectedMarkdownIsPage() ? 'Note page' : 'Text / heading' }}</strong>
+            <p>View this text in the worksheet or Notes.</p>
+          } @else {
+            <strong>{{ result.display || 'None' }}</strong>
+          }
+          @if (result.error) {
+            <p>{{ result.error }}</p>
+            @if (result.errorDetail; as detail) {
+              @if (detail.origin) {
+                <p class="error-origin">
+                  Caused by
+                  <button type="button" (click)="openLogCell(detail.origin)">
+                    {{ detail.origin }}{{ cellLabel(detail.origin) ? ' · ' + cellLabel(detail.origin) : '' }}
+                  </button>
+                </p>
+              } @else if (detail.traceback) {
+                @if (detail.line) {
+                  <p class="error-line">Line {{ detail.line }}: <code>{{ detail.source }}</code></p>
+                }
+                <details class="error-traceback">
+                  <summary>Traceback</summary>
+                  <pre>{{ detail.traceback }}</pre>
+                </details>
+              }
+            }
+          }
+        </div>
+      }
+
+      <section class="relationship-section">
+        <div class="section-title">
+          <span>Dependencies</span>
+          <span class="count">{{ selectedDependencies().size }}</span>
+        </div>
+        <div class="chip-list">
+          @for (cell of selectedDependencies(); track cell) {
+            <button class="cell-chip dependency" type="button" (click)="jumpTo(cell)">
+              {{ cell }}
+            </button>
+          } @empty {
+            <span class="empty-note">No direct dependencies</span>
+          }
+        </div>
+
+        <div class="section-title spaced">
+          <span>Dependents</span>
+          <span class="count">{{ selectedDependents().size }}</span>
+        </div>
+        <div class="chip-list">
+          @for (cell of selectedDependents(); track cell) {
+            <button class="cell-chip dependent" type="button" (click)="jumpTo(cell)">
+              {{ cell }}
+            </button>
+          } @empty {
+            <span class="empty-note">No direct dependents</span>
+          }
+        </div>
+      </section>
+
+      @if (resultAt(selectedId())?.callable) { <button type="button" class="secondary-button" [disabled]="!kernelRunning()" (click)="exposeSelectedFunction()">Expose function as action</button> }
+      <button type="button" class="secondary-button" (click)="openActions()">Workbook actions</button>
+      <section class="effects-section">
+        <div class="section-title">
+          <span>Effects</span>
+          <span class="count">{{ graph().effects.length }}</span>
+        </div>
+        @for (effect of graph().effects; track effect.id) {
+          <article
+            class="effect-card"
+            [class.disabled]="!effect.enabled"
+            [class.has-error]="effect.error"
+          >
+            <div class="effect-header">
+              <button class="effect-name" type="button" (click)="jumpTo(effect.id)">
+                ⚡ {{ effect.id }}
+              </button>
+              <div class="effect-actions">
+                @if (effect.trigger === 'manual') {
+                  <button
+                    class="run-effect-button"
+                    type="button"
+                    [disabled]="!effect.enabled || runtime.status() === 'running'"
+                    (click)="runEffect(effect.id)"
+                  >
+                    Run
+                  </button>
+                }
+                <label class="switch" [attr.aria-label]="'Toggle effect ' + effect.id">
+                  <input
+                    type="checkbox"
+                    [checked]="effect.enabled"
+                    (change)="toggleEffect(effect.id, $event)"
+                  />
+                  <span></span>
+                </label>
+              </div>
+            </div>
+            <div class="effect-meta">
+              <span>{{ effect.trigger }} · {{ effect.status }}</span>
+              <span>{{ effect.triggerCount }} run{{ effect.triggerCount === 1 ? '' : 's' }}</span>
+            </div>
+            <div class="effect-meta">
+              <span>{{ displayTimestamp(effect.lastTriggered) }}</span>
+              @if (effect.durationMs !== null) {
+                <span>{{ effect.durationMs }} ms</span>
+              }
+            </div>
+            @if (effect.output) {
+              <pre>{{ effect.output }}</pre>
+            }
+            @if (effect.error) {
+              <p class="effect-error">{{ effect.error }}</p>
+            }
+          </article>
+        } @empty {
+          <p class="empty-note block">Turn any cell into an effect to observe part of the graph.</p>
+        }
+      </section>
+    </aside>
+  </main>
+
+  <footer class="statusbar">
+    <!-- Fixed width: the message changes often and must not move the rest of the bar. -->
+    <div
+      class="runtime-pill"
+      role="status"
+      [class.error]="runtime.status() === 'error'"
+      [title]="activityMessage() ?? agentAccess.activity() ?? runtime.statusMessage()"
+    >
+      <span
+        class="status-dot"
+        [class.pulsing]="runtime.status() === 'loading' || runtime.status() === 'running'"
+      ></span>
+      <span>{{ activityMessage() ?? agentAccess.activity() ?? runtime.statusMessage() }}</span>
+    </div>
+
+    @if (problems().length > 0) {
+      <button type="button" class="status-problems has-problems" (click)="openProblems()"
+        title="Show cells with errors">⚠ {{ problems().length }} {{ problems().length === 1 ? 'problem' : 'problems' }}</button>
+    }
+    @if (typeChecking() !== 'off' && runtime.canCheckTypes() && typeFindings().length > 0) {
+      <button type="button" class="status-problems status-types has-findings" [title]="typeStatusTitle()" (click)="showNextTypeFinding()">
+        {{ typeFindings().length }} type {{ typeFindings().length === 1 ? 'hint' : 'hints' }}
+      </button>
+    }
+    @if (snapshotSavedAt(); as savedAt) {
+      <span class="snapshot-chip" [title]="'Saved outputs from ' + displayTimestamp(savedAt) + '. Start the workbook to recompute.'">Saved outputs</span>
+    }
+    <span class="status-spacer"></span>
+    @if (agentAccess.shared()) {
+      <button type="button" class="status-problems" aria-label="Shared workbook agent status"
+        [title]="agentAccess.status() + (agentAccess.lastActivity() ? ' · ' + agentAccess.lastActivity() : '')"
+        (click)="agentAccessOpen.set(true)">Agent · {{ agentAccess.status() === 'Connected' ? 'Connected' : 'Waiting' }}</button>
+    }
+    @if (agentAccess.shared() || agentActivity.entries().length) {
+      <app-agent-activity [showOrigins]="agentActivity.showOrigins()" (originsChanged)="agentActivity.setShowOrigins($event)" [entries]="agentActivity.entries()" [pending]="agentActivity.pending()"
+        [created]="agentActivity.created()" [edited]="agentActivity.edited()" [cellIds]="agentActivityCellIds()"
+        (cellRequested)="openLogCell($event)" (cleared)="agentActivity.reset()" />
+    }
+    <button type="button" class="status-problems" aria-label="Open runtime logs"
+      [attr.aria-expanded]="logsOpen()" title="Runtime logs and action output" (click)="toggleLogs()">
+      <app-ui-icon name="logs" /><span>Logs</span>
+    </button>
+    <button type="button" class="status-problems console-shortcut" aria-label="Open Python debug console"
+      [attr.aria-expanded]="consoleOpen()" title="Open Python debug console" (click)="toggleConsole()">
+      <app-ui-icon name="code" /><span>Console</span>
+    </button>
+    @if (kernelRunning()) { <app-resource-usage [usage]="runtime.usage()" [cells]="cells()" [results]="graph().cells" (navigate)="openReferencedCell($event)" /> }
+    <button type="button" class="status-problems status-details-toggle" popovertarget="workbook-status"
+      aria-label="Workbook details" [attr.aria-expanded]="statusDetailsOpen()" title="Workbook details">
+      <app-ui-icon name="more" />
+    </button>
+  </footer>
+
+  <section id="workbook-status" class="workbook-status-panel" popover aria-label="Workbook details"
+    (toggle)="statusDetailsToggled($event)">
+    <div class="workbook-status-heading"><strong>Workbook details</strong>
+      <button type="button" popovertarget="workbook-status" popovertargetaction="hide" aria-label="Close workbook details">×</button>
+    </div>
+    <dl>
+      <dt>Save state</dt><dd>{{ saving() ? 'Saving…' : hasUnsavedChanges() ? 'Unsaved changes' : 'No unsaved changes' }}</dd>
+      <dt>Edited</dt><dd>{{ lastEditedAt() ? activityTime(lastEditedAt()) : 'No edits recorded' }}</dd>
+      <dt>Saved</dt><dd>{{ lastSavedAt() ? activityTime(lastSavedAt()) : 'Not saved in this session' }}</dd>
+      <dt>Kernel</dt><dd>{{ kernelDescription() }}</dd>
+      <dt>Runtime</dt><dd>{{ activityMessage() ?? runtime.statusMessage() }}</dd>
+      <dt>Workbook</dt><dd>{{ cells().length }} cells · {{ graph().effects.length }} effects · {{ artifactCells().length }} artifacts</dd>
+      <dt>Problems</dt><dd>{{ problems().length === 0 ? 'No cell errors' : problems().length + ' cells with errors' }}</dd>
+      @if (typeChecking() !== 'off' && runtime.canCheckTypes()) {
+        <dt>Types</dt><dd>{{ typeStatusTitle() }}</dd>
+      }
+      @if (snapshotSavedAt(); as savedAt) { <dt>Saved outputs</dt><dd>{{ displayTimestamp(savedAt) }}</dd> }
+    </dl>
+    <div class="workbook-status-actions">
+      @if (artifactCells().length > 0) {
+        <button type="button" popovertarget="workbook-status" popovertargetaction="hide" (click)="toggleArtifacts()"><app-ui-icon name="artifact" />Generated files</button>
+      }
+    </div>
+  </section>
+
+  @if (commandPaletteOpen()) { <app-command-palette [commands]="paletteCommands()" (closed)="commandPaletteOpen.set(false)" /> }
+  @if (cellSearchOpen()) { <app-cell-search [cells]="searchableCells()" (closed)="cellSearchOpen.set(false)" (chosen)="chooseSearchCell($event)" /> }
+  <div class="bottom-dock" [hidden]="!logsOpen() && !consoleOpen() && !artifactsOpen()" [style.height.px]="bottomDockHeight()">
+    <div class="logs-resize-handle" [panelResize]="bottomDockHeight()" (panelHeightChange)="bottomDockHeight.set($event)" aria-label="Resize bottom tools"></div>
+  @if (artifactsOpen()) {
+    <aside class="artifacts-panel" aria-label="Generated artifacts">
+      <div class="artifacts-heading">
+        <div>
+          <strong>Generated artifacts</strong>
+          <span>Files currently held by cells in the reactive graph</span>
+        </div>
+        <button type="button" aria-label="Close artifacts" (click)="artifactsOpen.set(false)">
+          ×
+        </button>
+      </div>
+      <div class="artifacts-list">
+        @for (result of artifactCells(); track result.id + result.artifact.sha256) {
+          <article class="artifact-card">
+            @if (isPreviewableArtifact(result.artifact)) {
+              <img [src]="artifactDataUrl(result.artifact)" [alt]="result.artifact.filename" />
+            } @else {
+              <div class="artifact-file-icon" aria-hidden="true">▣</div>
+            }
+            <div class="artifact-card-details">
+              <button type="button" (click)="openReferencedCell(result.id)">
+                {{ result.artifact.filename }}
+              </button>
+              <span>{{ result.id }} · {{ result.artifact.mimeType }}</span>
+              <span>{{ artifactSize(result.artifact.size) }}</span>
+            </div>
+            <button
+              class="artifact-card-download"
+              type="button"
+              (click)="downloadArtifact(result.artifact)"
+            >
+              Download
+            </button>
+          </article>
+        } @empty {
+          <p class="empty-note block">
+            No artifacts yet. Return an <code>Artifact</code> from a formula or Resource cell.
+          </p>
+        }
+      </div>
+    </aside>
+  }
+
+  @if (consoleCreated()) {
+  <app-debug-console [hidden]="!consoleOpen()" [visible]="consoleOpen()" [completions]="pythonCompletions()" [enabled]="kernelRunning()" [sheet]="activeSheet()" (closed)="consoleOpen.set(false)" (resetRequested)="restartKernel()" (executed)="refreshCellMemory()" />
+  }
+
+  @if (logsOpen()) {
+    <section class="logs-panel" aria-label="Runtime logs">
+      <div class="logs-heading">
+        <strong>Logs</strong>
+        <div class="logs-filters" role="tablist" aria-label="Log filter">
+          @for (filter of logFilters; track filter.id) {
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="logFilter() === filter.id"
+              [class.active]="logFilter() === filter.id"
+              [class.alert]="filter.id === 'problems' && logCounts().problems > 0"
+              (click)="logFilter.set(filter.id)"
+            >
+              {{ filter.label }}
+              <span>{{ logCounts()[filter.id] }}</span>
+            </button>
+          }
+        </div>
+        <input
+          class="logs-search"
+          type="search"
+          placeholder="Search logs"
+          aria-label="Search logs"
+          [ngModel]="logSearch()"
+          (ngModelChange)="logSearch.set($event)"
+          [disabled]="logFilter() === 'problems'"
+        />
+        <div class="logs-actions">
+          <button
+            type="button"
+            title="Copy what is shown, with tracebacks"
+            (click)="copyLogs()"
+            [disabled]="logFilter() === 'problems' ? problems().length === 0 : visibleLogs().length === 0"
+          >
+            {{ logsCopied() ? 'Copied' : 'Copy' }}
+          </button>
+          <button type="button" (click)="clearLogs()" [disabled]="logCounts().all === 0">
+            Clear
+          </button>
+          <button type="button" aria-label="Close logs" (click)="logsOpen.set(false)">×</button>
+        </div>
+      </div>
+      <div class="logs-body">
+        @if (logFilter() === 'problems') {
+          @for (problem of problems(); track problem.cellId) {
+            <article class="problem">
+              <header>
+                <button type="button" class="log-cell" (click)="openLogCell(problem.cellId)">
+                  {{ problem.cellId }}
+                  @if (cellLabel(problem.cellId); as label) {
+                    <span>{{ label }}</span>
+                  }
+                </button>
+                <strong>{{ problem.error }}</strong>
+              </header>
+              @if (problem.line) {
+                <p class="problem-line">
+                  Line {{ problem.line }}: <code>{{ problem.source }}</code>
+                </p>
+              }
+              @if (problem.affected.length > 0) {
+                <p class="problem-affected">
+                  Also failing because of it:
+                  @for (cellId of problem.affected; track cellId) {
+                    <button type="button" class="log-cell" (click)="openLogCell(cellId)">
+                      {{ cellLabel(cellId) || cellId }}
+                    </button>
+                  }
+                </p>
+              }
+              @if (problem.traceback) {
+                <details>
+                  <summary>Traceback</summary>
+                  <pre>{{ problem.traceback }}</pre>
+                </details>
+              }
+            </article>
+          } @empty {
+            <p class="empty-note">No cell has an error.</p>
+          }
+        } @else {
+          @for (entry of visibleLogs(); track entry.id ?? (entry.timestamp + entry.cellId + entry.message)) {
+            <div
+              class="log-entry"
+              [class.log-error]="entry.level === 'error'"
+              [class.log-warning]="entry.level === 'warning'"
+            >
+              <time>{{ displayLogTimestamp(entry.timestamp) }}</time>
+              @if (entry.cellId) {
+                <button type="button" class="log-cell" (click)="openLogCell(entry.cellId)">
+                  {{ entry.cellId }}
+                  @if (cellLabel(entry.cellId); as label) {
+                    <span>{{ label }}</span>
+                  }
+                </button>
+              } @else {
+                <span class="log-cell log-app">app</span>
+              }
+              <span class="log-level">{{ entry.level === 'info' && entry.cellId ? 'output' : entry.level }}</span>
+              <div class="log-message">
+                <pre>{{ entry.message }}</pre>
+                @if (entry.traceback) {
+                  <details>
+                    <summary>Traceback{{ entry.line ? ' · line ' + entry.line : '' }}</summary>
+                    <pre>{{ entry.traceback }}</pre>
+                  </details>
+                }
+              </div>
+            </div>
+          } @empty {
+            <p class="empty-note">
+              @if (logCounts().all === 0) {
+                Nothing logged yet. <code>print()</code> output, warnings, and errors of cells
+                appear here with the line that failed, next to app and Python events.
+              } @else {
+                No entries match.
+              }
+            </p>
+          }
+        }
+      </div>
+    </section>
+  }
+  </div>
+
+  @if (gettingStartedOpen()) {
+    @defer (when gettingStartedOpen()) {
+      <app-getting-started [initialView]="viewMode()" [examples]="examples" [session]="embeddedSession()"
+        (viewRequested)="viewMode.set($event); actionsOpen.set(false)"
+        (closed)="viewMode.set($event); closeGettingStarted()"
+        (exampleSelected)="closeGettingStarted(); openExample($event)"
+        (createRequested)="closeGettingStarted(); openNewProject()" />
+    }
+  }
+
+  @if (newProjectOpen()) {
+    <div class="settings-backdrop" appToolbarPopup="backdrop" (click)="newProjectOpen.set(false)">
+      <section
+        class="settings-dialog new-project-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-project-title"
+        (click)="$event.stopPropagation()"
+      >
+        <header class="settings-heading">
+          <div>
+            <span class="eyebrow">New workspace</span>
+            <h2 id="new-project-title">Create a project</h2>
+          </div>
+          <button type="button" aria-label="Close new project" (click)="newProjectOpen.set(false)">
+            ×
+          </button>
+        </header>
+        <label class="field-label" for="new-project-name">Project name</label>
+        <input
+          id="new-project-name"
+          class="field-control"
+          [(ngModel)]="newProjectName"
+          autocomplete="off"
+          (keydown.enter)="createNewProject()"
+        />
+
+        <span class="field-label">Starting point</span>
+        <div class="template-options">
+          <label [class.selected]="newProjectTemplate === 'note'">
+            <input
+              type="radio"
+              name="project-template"
+              value="note"
+              [(ngModel)]="newProjectTemplate"
+            />
+            <app-ui-icon name="edit" />
+            <span
+              ><strong>Blank note</strong
+              ><small>Start writing and add calculations later.</small></span
+            >
+          </label>
+          <label [class.selected]="newProjectTemplate === 'model'">
+            <input
+              type="radio"
+              name="project-template"
+              value="model"
+              [(ngModel)]="newProjectTemplate"
+            />
+            <app-ui-icon name="split" />
+            <span
+              ><strong>Note + model</strong
+              ><small>See a small reactive calculation connected to a note.</small></span
+            >
+          </label>
+          <label [class.selected]="newProjectTemplate === 'empty'">
+            <input
+              type="radio"
+              name="project-template"
+              value="empty"
+              [(ngModel)]="newProjectTemplate"
+            />
+            <app-ui-icon name="grid" />
+            <span
+              ><strong>Empty sheet</strong
+              ><small>Begin directly in the calculation grid.</small></span
+            >
+          </label>
+        </div>
+
+        <div class="grid-size-fields">
+          <label>
+            <span class="field-label">Columns</span>
+            <input
+              class="field-control"
+              type="number"
+              min="1"
+              max="100"
+              [(ngModel)]="newProjectColumns"
+            />
+          </label>
+          <label>
+            <span class="field-label">Rows</span>
+            <input
+              class="field-control"
+              type="number"
+              min="1"
+              max="1000"
+              [(ngModel)]="newProjectRows"
+            />
+          </label>
+        </div>
+        @if (newProjectError; as message) {
+          <p class="dialog-error" role="alert">{{ message }}</p>
+        }
+        <p class="settings-help">
+          Creating a project replaces the current workspace. Save it first if you want to keep it.
+        </p>
+        <footer class="dialog-footer">
+          <button class="secondary-button" type="button" (click)="newProjectOpen.set(false)">
+            Cancel
+          </button>
+          <button class="primary-button" type="button" (click)="createNewProject()">
+            <app-ui-icon name="check" />
+            Create project
+          </button>
+        </footer>
+      </section>
+    </div>
+  }
+
+  @if (sheetMenu(); as menu) {
+    <div
+      class="cell-context-menu sheet-context-menu"
+      role="menu"
+      [appKeepInView]="menu"
+      (click)="$event.stopPropagation()"
+    >
+      <strong>{{ sheetDisplayName(menu.prefix) }}</strong>
+      <button type="button" role="menuitem" (click)="sheetMenu.set(null); startRenameSheet(menu.prefix)">
+        Rename
+      </button>
+      <button type="button" role="menuitem" [disabled]="sheetIndex(menu.prefix) === 0" (click)="moveSheet(menu.prefix, -1)">
+        Move left
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        [disabled]="sheetIndex(menu.prefix) === sheetTabs().length - 1"
+        (click)="moveSheet(menu.prefix, 1)"
+      >
+        Move right
+      </button>
+      <button type="button" role="menuitem" (click)="askDuplicateSheet(menu.prefix)">
+        Duplicate sheet…
+      </button>
+      @if (menu.prefix !== '') {
+        <button type="button" role="menuitem" class="danger" (click)="askDeleteSheet(menu.prefix)">
+          Delete sheet…
+        </button>
+      }
+    </div>
+  }
+  @if (sheetToDelete(); as prefix) {
+    <div class="close-prompt-backdrop" (click)="sheetToDelete.set(null)">
+      <div
+        class="close-prompt"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="delete-sheet-title"
+        (click)="$event.stopPropagation()"
+        (keydown.escape)="sheetToDelete.set(null)"
+      >
+        <strong id="delete-sheet-title">Delete sheet “{{ prefix }}”?</strong>
+        <span>
+          @if (sheetCellCount(prefix) > 0) {
+            Its {{ sheetCellCount(prefix) }} cell(s) are deleted too. You can undo this.
+          } @else {
+            The sheet is empty. You can undo this.
+          }
+        </span>
+        <div class="close-prompt-actions">
+          <span class="spacer"></span>
+          <button type="button" class="secondary-button" (click)="sheetToDelete.set(null)">Cancel</button>
+          <button type="button" class="primary-button danger-button" (click)="confirmDeleteSheet()">
+            Delete sheet
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+  @if (sheetToDuplicate(); as request) {
+    <div class="close-prompt-backdrop" (click)="sheetToDuplicate.set(null)">
+      <form
+        class="close-prompt duplicate-sheet-prompt"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="duplicate-sheet-title"
+        (click)="$event.stopPropagation()"
+        (keydown.escape)="sheetToDuplicate.set(null)"
+        (submit)="$event.preventDefault(); confirmDuplicateSheet(duplicateName.value)"
+      >
+        <strong id="duplicate-sheet-title">Duplicate sheet “{{ sheetDisplayName(request.prefix) }}”</strong>
+        <label class="duplicate-sheet-field">
+          <span>Name of the copy</span>
+          <input
+            #duplicateName
+            class="duplicate-sheet-name"
+            spellcheck="false"
+            autocomplete="off"
+            [value]="request.name"
+            (input)="sheetToDuplicate.set({ prefix: request.prefix, name: duplicateName.value })"
+          />
+        </label>
+        @if (duplicateNameProblem(request.name); as problem) {
+          <span class="duplicate-sheet-problem" role="alert">{{ problem }}</span>
+        }
+        <div class="close-prompt-actions">
+          <span class="spacer"></span>
+          <button type="button" class="secondary-button" (click)="sheetToDuplicate.set(null)">Cancel</button>
+          <button type="submit" class="primary-button" [disabled]="duplicateNameProblem(request.name) !== null">
+            Duplicate
+          </button>
+        </div>
+      </form>
+    </div>
+  }
+  @if (sharedCodeOpen()) {
+    <div class="settings-backdrop" appToolbarPopup="backdrop" (click)="sharedCodeOpen.set(false)">
+      <section
+        class="settings-dialog shared-code-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shared-code-title"
+        (click)="$event.stopPropagation()"
+        (keydown.escape)="sharedCodeOpen.set(false)"
+      >
+        <header class="settings-heading">
+          <div>
+            <span class="eyebrow">Available in every cell</span>
+            <h2 id="shared-code-title">Shared code</h2>
+          </div>
+          <button type="button" aria-label="Close shared code" (click)="sharedCodeOpen.set(false)">
+            ×
+          </button>
+        </header>
+        <p class="settings-help">
+          Define functions, classes, and constants once and use them in any formula or note
+          (<code>gross(price)</code>). Imports work here too. It is saved as plain Python in the
+          workbook file; changing it recomputes the whole workbook. For a value you want to
+          tweak, use an input cell instead; for a single reactive helper, a formula cell
+          ending in <code>def</code> works too.
+        </p>
+        <app-python-editor
+          class="shared-code-editor"
+          ariaLabel="Shared code"
+          [value]="sharedCodeDraft"
+          [completions]="pythonCompletions()"
+          [readOnly]="!kernelRunning() || !workbookEditing()"
+          (valueChange)="sharedCodeDraft = $event"
+          (commit)="workbookEditing() && applySharedCode()"
+        />
+        @if (sharedCodeError(); as message) {
+          <p class="shared-code-error" role="alert">{{ message }}</p>
+        }
+        <footer class="settings-actions">
+          <span class="settings-help">Shift+Enter or Ctrl/Cmd+Enter to apply</span>
+          <button class="secondary-button" type="button" (click)="sharedCodeOpen.set(false)">
+            Cancel
+          </button>
+          <button
+            class="primary-button"
+            type="button"
+            [disabled]="!kernelRunning() || !workbookEditing()"
+            (click)="workbookEditing() && applySharedCode()"
+          >
+            Apply
+          </button>
+        </footer>
+      </section>
+    </div>
+  }
+  @if (gitPanelOpen() && git(); as repository) {
+    <div class="settings-backdrop" appToolbarPopup="backdrop" (click)="gitPanelOpen.set(false)">
+      <section
+        class="settings-dialog git-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="git-title"
+        (click)="$event.stopPropagation()"
+      >
+        <header class="settings-heading">
+          <div>
+            <span class="eyebrow">
+              Git · {{ repository.branch ?? 'detached HEAD' }}
+              @if (repository.upstream) {
+                → {{ repository.upstream }}
+              }
+            </span>
+            <h2 id="git-title">Changes since the last commit</h2>
+          </div>
+          <button type="button" aria-label="Close" (click)="gitPanelOpen.set(false)">×</button>
+        </header>
+
+        @if (gitChanges(); as changes) {
+          @if (changes.workbook.length) {
+            <p class="git-workbook-changes">Workbook: {{ changes.workbook.join(', ') }}</p>
+          }
+          @if (changes.cells.length === 0 && changes.workbook.length === 0) {
+            <p class="settings-help">No changes: the workbook is as committed.</p>
+          }
+          <ul class="git-cell-changes">
+            @for (change of changes.cells; track change.id + change.change) {
+              <li [class]="'git-change ' + change.change">
+                <div class="git-change-heading">
+                  <span class="git-change-kind">{{ change.change }}</span>
+                  <button type="button" class="text-button" (click)="gitPanelOpen.set(false); jumpTo(change.id)">
+                    {{ change.label ? change.label + ' (' + change.id + ')' : change.id }}
+                  </button>
+                  @if (change.from) {
+                    <span class="field-hint">from {{ change.from }}</span>
+                  }
+                  @for (detail of change.details; track detail) {
+                    <span class="field-hint">{{ detail }}</span>
+                  }
+                </div>
+                @if (change.lines.length) {
+                  <pre class="git-lines">@for (line of change.lines; track $index) {<span [class]="line.kind">{{ line.kind === 'added' ? '+ ' : line.kind === 'removed' ? '- ' : '  ' }}{{ line.text }}
+</span>}</pre>
+                }
+              </li>
+            }
+          </ul>
+          @if (gitTextDiff()) {
+            <details class="git-text-diff">
+              <summary>Text diff of the saved file</summary>
+              <pre>{{ gitTextDiff() }}</pre>
+            </details>
+          }
+        } @else {
+          <p class="settings-help">Comparing with the last commit…</p>
+        }
+
+        <label class="field-label" for="commit-message">Commit message</label>
+        <textarea
+          id="commit-message"
+          class="field-control commit-message"
+          rows="2"
+          placeholder="What changed, e.g. Forecast uses the new tax rate"
+          [(ngModel)]="commitMessage"
+          (keydown.meta.enter)="commitWorkbook()"
+          (keydown.control.enter)="commitWorkbook()"
+        ></textarea>
+        @if (gitMessage(); as message) {
+          <p class="settings-help git-message" role="status">{{ message }}</p>
+        }
+        <footer class="settings-actions">
+          <button type="button" class="secondary-button" [disabled]="gitBusy() !== null" (click)="pullWorkbook()">
+            Pull{{ repository.behind ? ' (' + repository.behind + ')' : '' }}
+          </button>
+          <button type="button" class="secondary-button" [disabled]="gitBusy() !== null" (click)="pushWorkbook()">
+            Push{{ repository.ahead ? ' (' + repository.ahead + ')' : '' }}
+          </button>
+          <button type="button" class="primary-button" [disabled]="gitBusy() !== null" (click)="commitWorkbook()">
+            {{ gitBusy() ?? (hasUnsavedChanges() ? 'Save and commit' : 'Commit') }}
+          </button>
+        </footer>
+      </section>
+    </div>
+  }
+
+  @if (actionRunnerOpen()) {
+    @defer (on immediate) {
+    <app-action-panel mode="runner" [definitions]="actionDefinitions()" [actions]="graph().actions ?? []" [effects]="graph().effects" [cells]="cells()"
+      [canEdit]="workbookEditing() && !appRun()" [enabled]="kernelRunning()" [busyName]="runningAction()" [runningNames]="runningActionNames()" [error]="actionError()" [applying]="actionApplying() || saving()" [selected]="runnerSelectedAction()" [initialArguments]="actionInitialArguments()" [pinned]="pinnedActionNames()"
+      (pinToggled)="toggleActionPin($event)" (managed)="openActions()"
+      (closed)="actionRunnerOpen.set(false)" (invoked)="invokeAction($event)" (cancelled)="cancelAction($event)" (invocationCancelled)="cancelAction($event.name, $event.id)" (bindingsSaved)="saveActionBindings($event)" />
+    }
+  }
+
+  @if (settingsOpen()) {
+    <div class="settings-backdrop" appToolbarPopup="backdrop" (click)="settingsOpen.set(false)">
+      <section
+        class="settings-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+        (click)="$event.stopPropagation()"
+      >
+        <header class="settings-heading">
+          <div>
+            <span class="eyebrow">{{ settingsLevel() === 'workbook' ? 'Saved with this workbook' : 'Preferences on this device' }}</span>
+            <h2 id="settings-title">{{ settingsLevel() === 'workbook' ? 'Workbook settings' : 'App settings' }}</h2>
+          </div>
+          <button type="button" aria-label="Close settings" (click)="settingsOpen.set(false)">
+            ×
+          </button>
+        </header>
+
+        <nav class="settings-scope" role="tablist" aria-label="Settings scope" (keydown)="settingsScopeKeydown($event)">
+          <button class="secondary-button" type="button" role="tab" id="settings-workbook-tab"
+            [class.active-button]="settingsLevel() === 'workbook'" [attr.aria-selected]="settingsLevel() === 'workbook'"
+            [attr.tabindex]="settingsLevel() === 'workbook' ? 0 : -1" aria-controls="settings-panel" (click)="openSettings('workbook')">Workbook</button>
+          <button class="secondary-button" type="button" role="tab" id="settings-app-tab"
+            [class.active-button]="settingsLevel() === 'app'" [attr.aria-selected]="settingsLevel() === 'app'"
+            [attr.tabindex]="settingsLevel() === 'app' ? 0 : -1" aria-controls="settings-panel" (click)="openSettings('app')">App</button>
+        </nav>
+        <div id="settings-panel" role="tabpanel" [attr.aria-labelledby]="'settings-' + settingsLevel() + '-tab'">
+        @if (settingsLevel() === 'workbook') {
+        <p class="settings-help">Configuration for {{ documentName() }}. Save the workbook to keep it in the file.</p>
+        <label class="field-label" for="workbook-name">Worksheet name</label>
+        <input
+          id="workbook-name"
+          class="field-control"
+          [ngModel]="documentName()"
+          (ngModelChange)="documentName.set($event)"
+          autocomplete="off"
+        />
+
+        <div class="settings-section-title"><strong>Saving workbooks</strong></div>
+        <label class="settings-toggle">
+          <input
+            type="checkbox"
+            [checked]="saveOutputs()"
+            (change)="setSaveOutputs($any($event.target).checked)"
+          />
+          <span>
+            <strong>Save output snapshot JSON (.snapshot.json)</strong>
+            <small
+              >Save calculated values, tables, and plots so the workbook opens with previews.
+              Turn off for faster saves and smaller files: output snapshot generation and JSON encoding
+              are skipped. The Python workbook, input values, code and note images are still saved.</small
+            >
+          </span>
+        </label>
+
+        <div class="settings-section-title">
+          <strong>Python environment</strong>
+          <span
+            >{{ packages().length }} package · {{ importCount() }} import ·
+            {{ variableCount() }} variable</span
+          >
+        </div>
+        <label class="field-label" for="kernel-kind">Kernel</label>
+        <select
+          id="kernel-kind"
+          [disabled]="embeddedSession()"
+          class="field-control"
+          [ngModel]="kernelKind()"
+          (ngModelChange)="kernelKind.set($event)"
+        >
+          <option value="pyodide">Pyodide · in the app, sandboxed</option>
+          <option value="remote">Python backend · HTTP</option>
+        </select>
+        @if (kernelKind() === 'remote') {
+          <label class="field-label" for="remote-url">Backend URL</label>
+          <input
+            id="remote-url"
+            [readonly]="embeddedSession()"
+            class="field-control"
+            [(ngModel)]="remoteUrl"
+            placeholder="http://127.0.0.1:8765"
+            spellcheck="false"
+          />
+        }
+
+        <p class="settings-help">Code checking is an app preference.
+          <button class="text-button inline-link" type="button" (click)="openSettings('app')">Open app settings</button>
+        </p>
+        @for (finding of sharedCodeTypeFindings(); track $index) {
+          <p class="settings-help type-findings-shared">Shared code: {{ finding.message }}</p>
+        }
+
+        <label class="field-label" for="package-requirements">Package dependencies</label>
+        <p class="settings-help">
+          One PEP 508 requirement per line. The remote backend owns installation; Pyodide installs
+          compatible packages in the browser.
+        </p>
+        <textarea
+          id="package-requirements"
+          class="source-editor package-editor"
+          [(ngModel)]="packageSource"
+          rows="5"
+          placeholder="pandas==2.3.2&#10;httpx>=0.28"
+          spellcheck="false"
+        ></textarea>
+
+        <label class="field-label" for="global-imports">Global modules</label>
+        <p class="settings-help">
+          One Python import statement per line. Imported names are available in every formula,
+          resource, effect, and Markdown interpolation. Install third-party modules above first.
+          For your own functions and classes, use
+          <button type="button" class="text-button inline-link" (click)="settingsOpen.set(false); openSharedCode()">Shared code</button>.
+        </p>
+        <textarea
+          id="global-imports"
+          class="source-editor import-editor"
+          [(ngModel)]="importSource"
+          rows="5"
+          placeholder="import pandas as pd&#10;from datetime import date"
+          spellcheck="false"
+        ></textarea>
+
+        <label class="field-label" for="environment-variables">Environment variables</label>
+        <p class="settings-help">
+          One <code>NAME=value</code> per line, available as <code>env['NAME']</code>: configuration
+          such as URLs, paths, or regions, not code. They are saved in the workbook, so do not
+          store secrets in shared files.
+        </p>
+        <textarea
+          id="environment-variables"
+          class="source-editor variable-editor"
+          [(ngModel)]="variableSource"
+          rows="5"
+          placeholder="DATA_API_URL=https://example.test/data.json&#10;REPORT_REGION=eu"
+          spellcheck="false"
+        ></textarea>
+
+        } @else {
+        <p class="settings-help">Preferences for workbooks on this device. Changes take effect immediately.</p>
+        <p class="settings-help">To zoom the whole app, use your browser’s zoom controls: Ctrl/Cmd +, − and 0.</p>
+        <label class="field-label" for="app-theme">Theme</label>
+        <select id="app-theme" class="field-control" [ngModel]="theme()" (ngModelChange)="setTheme($event)">
+          @for (choice of themeChoices(); track choice.id) {
+            <option [value]="choice.id">{{ choice.name }}</option>
+          }
+        </select>
+
+        <p class="settings-help">Import a JSON theme or load a folder of JSON themes. Imported themes stay available on this device.</p>
+        <div class="theme-actions">
+          <label class="secondary-button">Import JSON…<input type="file" accept=".json,application/json" multiple [disabled]="themeBusy()" (change)="importThemeFiles($event)" /></label>
+          <label class="secondary-button">Load theme folder…<input type="file" webkitdirectory multiple [disabled]="themeBusy()" (change)="importThemeFiles($event)" /></label>
+          <button type="button" class="secondary-button" (click)="exportTheme()">Export theme JSON…</button>
+          @if (theme().startsWith('custom:')) { <button type="button" class="secondary-button" (click)="removeCustomTheme()">Remove theme</button> }
+        </div>
+        @if (themeMessage()) { <p class="settings-help" role="status">{{ themeMessage() }}</p> }
+
+        <div class="settings-section-title"><strong>Performance diagnostics</strong></div>
+        <p class="settings-help">Record timings and memory while reproducing slow operations or rising RAM usage, then save a report to share. Memory is sampled every 5 seconds while visible; saving also requests a snapshot. Counts and sizes exclude cell values and code. Error logs may contain local paths; review before sharing.</p>
+        <div class="theme-actions">
+          @if (diagnostics.enabled()) {
+            <button type="button" class="secondary-button" (click)="diagnostics.stop()">Stop recording</button>
+          } @else {
+            <button type="button" class="secondary-button" (click)="diagnostics.start()">Record performance</button>
+          }
+          <button type="button" class="secondary-button" (click)="exportPerformanceDiagnostics()">Save diagnostics…</button>
+          <span role="status">{{ diagnostics.enabled() ? 'Recording timings and memory…' : 'Recording off' }}</span>
+        </div>
+        @if (diagnosticsMessage()) { <p class="settings-help" role="status">{{ diagnosticsMessage() }}</p> }
+
+        <div class="settings-section-title">
+          <strong>Cell display</strong>
+        </div>
+        <label class="settings-toggle">
+          <input
+            type="checkbox"
+            [checked]="renderStringsAsMarkdown()"
+            (change)="setRenderStringsAsMarkdown($any($event.target).checked)"
+          />
+          <span>
+            <strong>Render string results as Markdown</strong>
+            <small
+              >Turn this off to display strings as plain text in cells and the inspector.</small
+            >
+          </span>
+        </label>
+
+        <label class="settings-toggle">
+          <input type="checkbox" [checked]="showCellMemory()" (change)="setShowCellMemory($any($event.target).checked)" />
+          <span><strong>Show memory usage of individual cells</strong><small>Estimate evaluated value sizes in cells and the inspector. Shared data can be counted in multiple cells; these estimates are not a breakdown of RAM.</small></span>
+        </label>
+
+        <div class="settings-section-title">
+          <strong>Local recovery</strong>
+          <span>
+            @if (lastDraftSaved()) {
+              Draft updated {{ displayTimestamp(lastDraftSaved()) }}
+            } @else {
+              Waiting for changes
+            }
+          </span>
+        </div>
+        <label class="settings-toggle">
+          <input
+            type="checkbox"
+            [checked]="autoDraftEnabled()"
+            (change)="setAutoDraftEnabled($any($event.target).checked)"
+          />
+          <span>
+            <strong>Auto-save recovery draft</strong>
+            <small>Keep recovery drafts for workbooks and unsaved edits on this device.</small>
+          </span>
+        </label>
+
+        <div class="settings-section-title"><strong>Code checking</strong></div>
+        <label class="field-label" for="type-checking">Type checking</label>
+        <select
+          id="type-checking"
+          class="field-control"
+          [ngModel]="typeChecking()"
+          (ngModelChange)="setTypeChecking($event)"
+        >
+          <option value="off">Off</option>
+          <option value="standard">Standard</option>
+          <option value="strict">Strict · every value needs a known type</option>
+        </select>
+        <p class="settings-help">
+          Checks the cells and their type hints with pyright, using the packages of the kernel
+          (local and HTTP kernels; not the Python in the browser). Findings show in the cell
+          editor and never stop a cell from running.
+          @if (typeCheckReason(); as reason) {
+            <br />{{ reason }}
+          }
+        </p>
+
+        }
+        </div>
+        @if (settingsLevel() === 'workbook') {
+        <footer class="settings-actions">
+          <button class="secondary-button" type="button" (click)="settingsOpen.set(false)">
+            Close
+          </button>
+          <button
+            class="primary-button"
+            type="button"
+            [disabled]="runtime.status() === 'loading' || runtime.status() === 'running'"
+            (click)="applyPackages()"
+          >
+            {{ embeddedSession() ? 'Apply settings' : kernelKind() === 'remote' ? 'Apply & connect' : 'Apply settings' }}
+          </button>
+        </footer>
+        } @else {
+        <footer class="settings-actions">
+          <span class="settings-help">Preferences are saved automatically.</span>
+          <button class="primary-button" type="button" (click)="settingsOpen.set(false)">Done</button>
+        </footer>
+        }
+      </section>
+    </div>
+  }
+
+  @if (exportDialog(); as dialog) {
+    <div class="close-prompt-backdrop" (click)="exportDialog.set(null)">
+      <div
+        class="close-prompt export-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-title"
+        (click)="$event.stopPropagation()"
+        (keydown.escape)="exportDialog.set(null)"
+      >
+        <strong id="export-title">Print or export notes</strong>
+        <span>Notes are exported as shown now: current values, tables, and plots.</span>
+        <div class="export-note-list">
+          <label class="inline-toggle select-all">
+            <input
+              type="checkbox"
+              [checked]="dialog.ids.size === orderedNotes().length"
+              (change)="selectAllExportNotes($any($event.target).checked)"
+            />
+            All notes ({{ orderedNotes().length }})
+          </label>
+          @for (note of orderedNotes(); track note.id) {
+            <label class="inline-toggle">
+              <input
+                type="checkbox"
+                [checked]="dialog.ids.has(note.id)"
+                (change)="toggleExportNote(note.id, $any($event.target).checked)"
+              />
+              {{ noteTitle(note) }}
+            </label>
+          }
+        </div>
+        <div class="export-format" role="radiogroup" aria-label="Export format">
+          <label class="inline-toggle">
+            <input
+              type="radio"
+              name="export-format"
+              [checked]="dialog.format === 'markdown'"
+              (change)="setExportFormat('markdown')"
+            />
+            Markdown (.md)
+          </label>
+          <label class="inline-toggle">
+            <input
+              type="radio"
+              name="export-format"
+              [checked]="dialog.format === 'html'"
+              (change)="setExportFormat('html')"
+            />
+            HTML (.html)
+          </label>
+        </div>
+        <div class="close-prompt-actions">
+          <button
+            type="button"
+            class="secondary-button"
+            [disabled]="dialog.ids.size === 0"
+            (click)="printNotes()"
+          >
+            Print…
+          </button>
+          <span class="spacer"></span>
+          <button type="button" class="text-button" (click)="exportDialog.set(null)">Cancel</button>
+          <button
+            type="button"
+            class="primary-button"
+            [disabled]="dialog.ids.size === 0"
+            (click)="exportNotes()"
+          >
+            Export {{ dialog.ids.size === 1 ? 'note' : dialog.ids.size + ' notes' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+  @if (printHtml(); as html) {
+    <div class="print-root" [innerHTML]="trustedHtml(html)"></div>
+  }
+  @if (openingFile(); as fileName) {
+    <div class="opening-file" role="status">Opening {{ fileName }}…</div>
+  }
+  @defer (when saveFailure()) {
+    @if (saveFailure(); as failure) {
+      <app-save-failure [failure]="failure" [busy]="saving()" (dismissed)="saveFailure.set(null)" (retried)="saveSheet(lastSaveOptions)" (cellRequested)="openSaveFailureCell($event)" (actionRequested)="openSaveFailureAction($event)" />
+    }
+  }
+  @if (!saveFailure() && (evaluationError || runtime.error())) {
+    <div class="error-toast" role="alert">
+      <div>
+        <strong>{{ runtime.error() ? 'Runtime unavailable' : 'Could not do that' }}</strong>
+        <span>{{ evaluationError ?? runtime.error() }}</span>
+      </div>
+      <button type="button" aria-label="Dismiss error" (click)="dismissError()">×</button>
+    </div>
+  }
+  @if (saveFeedback(); as message) {
+    <div class="error-toast save-toast" role="status">
+      <app-ui-icon name="check" />
+      <span>{{ message }}</span>
+    </div>
+  }
+</div>
+@if (agentAccessOpen()) {
+  <app-agent-access appToolbarPopup="backdrop" [workbookName]="documentName()" [kernelRunning]="kernelRunning()"
+    [shared]="agentAccess.shared()" [status]="agentAccess.status()" [activity]="agentAccess.activity()"
+    [lastActivity]="agentAccess.lastActivity()"
+    (enabled)="agentAccess.share($event)" (revoked)="agentAccess.stop()" (dismissed)="agentAccessOpen.set(false)" />
+}
