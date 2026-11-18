@@ -3051,6 +3051,14 @@ describe('App', () => {
     fixture.detectChanges();
     expect(compiled.querySelector('.type-badge')?.textContent).toContain('formula');
 
+    // Applying keeps the formula, not the typed '=' prefix, in the editor: no leftover draft.
+    const editing = fixture.componentInstance as unknown as { applyCell(): void; hasCellDraft(id: string): boolean; editorSource: string };
+    formulaEditor.valueChange.emit('=A1 * 2');
+    editing.applyCell();
+    fixture.detectChanges();
+    expect(editing.editorSource).toBe('A1 * 2');
+    expect(editing.hasCellDraft('J16')).toBe(false);
+
     (compiled.querySelector('#cell-A1') as HTMLElement).click();
     compiled
       .querySelector('#cell-A1')

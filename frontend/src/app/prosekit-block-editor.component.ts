@@ -671,6 +671,23 @@ export const PROSEKIT_BLOCK_COMMANDS: readonly ProseKitBlockCommand[] = [
     .prosekit-editor ::ng-deep :is(.cell-value-node, .sheet-widget-node):is(:hover, :focus-within) .reference-presentation {
       visibility: visible;
     }
+    /* Inline values: the button floats right after the value (flush, so the pointer can reach
+       it without leaving the hover), and hidden it takes no space in the line. */
+    .prosekit-editor ::ng-deep .cell-value-node:not(.block-value) {
+      position: relative;
+    }
+    .prosekit-editor ::ng-deep .cell-value-node:not(.block-value) > .reference-presentation {
+      position: absolute;
+      top: 50%;
+      left: 100%;
+      z-index: 3;
+      margin-left: 0;
+      transform: translateY(-50%);
+      white-space: nowrap;
+      border: 1px solid light-dark(#d9ddd5, #33352f);
+      background: light-dark(#fff, #1b1c1a);
+      box-shadow: 0 2px 8px light-dark(#0000001a, #00000066);
+    }
     .prosekit-editor ::ng-deep .reference-presentation:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;

@@ -4619,6 +4619,9 @@ export class App implements OnInit, OnDestroy {
       this.evaluationError = `The label ${name} is already used by ${duplicate.id}.`;
       return;
     }
+    // The typed kind prefix ('=', '!', '~') only chose the kind: the editor shows the applied
+    // source, or it would differ from the cell and leave a draft behind.
+    if (normalizedSource !== source) this.editorSource = normalizedSource;
 
     if (normalizedSource === '') {
       if (existing !== undefined) {
