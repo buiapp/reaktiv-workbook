@@ -4813,6 +4813,7 @@ export class App implements OnInit, OnDestroy {
       if (this.embeddedSession() && !options.saveAs) {
         // Like marimo, the CLI upgrades an older-format file in place.
         stage = 'save the Python session workbook';
+        this.takeEnvironmentFields();
         const document = this.currentDraftDocument();
         const files = await this.assets.filesForDownload(document.cells);
         const {blobToDataUrl} = await import('./image-assets');
@@ -4826,12 +4827,7 @@ export class App implements OnInit, OnDestroy {
         void this.refreshGit();
         return;
       }
-      const packages = parseRequirements(this.packageSource);
-      const imports = parseGlobalImports(this.importSource);
-      const variables = parseEnvironmentVariables(this.variableSource);
-      this.packages.set(packages);
-      this.imports.set(imports);
-      this.variables.set(variables);
+      const { packages, imports, variables } = this.takeEnvironmentFields();
       // Generation and file writes may await while the user keeps editing.
       let savedCheckpoint = this.currentDraftDocument();
       const layout = this.documentLayout();
@@ -5010,19 +5006,27 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  /** The Workbook settings fields (packages, imports, environment variables) become the
+   * workbook's: what Apply runs with and Save writes. */
+  private takeEnvironmentFields(): { packages: string[]; imports: string[]; variables: Record<string, string> } {
+    const packages = parseRequirements(this.packageSource);
+    const imports = parseGlobalImports(this.importSource);
+    const variables = parseEnvironmentVariables(this.variableSource);
+    this.packages.set(packages);
+    this.imports.set(imports);
+    this.variables.set(variables);
+    return { packages, imports, variables };
+  }
+
   protected async applyPackages(): Promise<void> {
     if (this.embeddedSession()) {
-      try { await this.evaluateGraph(); this.settingsOpen.set(false); }
+      // The script's Python owns what is installed; the lists still belong to the workbook.
+      try { this.takeEnvironmentFields(); await this.evaluateGraph(); this.settingsOpen.set(false); }
       catch (error) { this.evaluationError = String(error); }
       return;
     }
     try {
-      const packages = parseRequirements(this.packageSource);
-      const imports = parseGlobalImports(this.importSource);
-      const variables = parseEnvironmentVariables(this.variableSource);
-      this.packages.set(packages);
-      this.imports.set(imports);
-      this.variables.set(variables);
+      const { packages, variables } = this.takeEnvironmentFields();
       await this.runtime.configureKernel(
         this.kernelKind(),
         this.remoteUrl,

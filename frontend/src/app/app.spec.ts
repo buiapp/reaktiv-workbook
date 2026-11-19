@@ -4535,6 +4535,21 @@ describe('App', () => {
     }
   });
 
+  it('applies workbook settings in a Python script session, so Save writes them', async () => {
+    const fixture = createWithFinancialModel(); fixture.detectChanges(); await fixture.whenStable();
+    const app = fixture.componentInstance as unknown as {
+      embeddedSession: ReturnType<typeof signal<boolean>>; applyPackages(): Promise<void>;
+      packageSource: string; importSource: string; variableSource: string;
+      packages(): string[]; imports(): string[]; variables(): Record<string, string>;
+    };
+    app.embeddedSession.set(true);
+    app.packageSource = 'pandas'; app.importSource = 'import json'; app.variableSource = 'REGION=EU';
+    await app.applyPackages();
+    expect(app.packages()).toEqual(['pandas']);
+    expect(app.imports()).toEqual(['import json']);
+    expect(app.variables()).toEqual({ REGION: 'EU' });
+  });
+
   it('keeps each worksheet grid size when the sheets are reordered', async () => {
     const fixture = createWithFinancialModel(); fixture.detectChanges(); await fixture.whenStable();
     const app = fixture.componentInstance as unknown as {
