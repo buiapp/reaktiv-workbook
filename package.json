@@ -1,6 +1,6 @@
 {
   "name": "reaktiv-workbook",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "scripts": {
     "ng": "ng",
     "sync:python": "node scripts/sync-python-package.mjs",
