@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "reaktiv-workbook"
-version = "0.1.6"
+version = "0.1.7"
 description = "Reactive Python workbooks with a browser IDE and command-line tools"
 readme = "docs/PYTHON-PACKAGE.md"
 license = "MIT"
