@@ -118,13 +118,13 @@ export class AgentConnection {
     const assertShared = () => {
       if (this.binding !== binding) throw new Error('Workbook sharing was revoked.');
     };
-    const label = (['edit', 'action-edit', 'colors', 'resize', 'tracks', 'move', 'label', 'worksheets', 'environment', 'asset'].includes(command.operation) && !(command.operation === 'environment' && command.payload['read'] === true)) ? 'Agent editing workbook' : command.operation === 'save' ? 'Agent saving workbook' : ['kernel-control', 'action-run', 'action-cancel'].includes(command.operation) ? 'Agent running command' : 'Agent reading workbook';
+    const label = (['edit', 'action-edit', 'colors', 'resize', 'tracks', 'move', 'label', 'grid-lines', 'worksheets', 'environment', 'asset'].includes(command.operation) && !(command.operation === 'environment' && command.payload['read'] === true)) ? 'Agent editing workbook' : command.operation === 'save' ? 'Agent saving workbook' : ['kernel-control', 'action-run', 'action-cancel'].includes(command.operation) ? 'Agent running command' : 'Agent reading workbook';
     this.activity.set(label);
     let result: Record<string, unknown> | undefined, error: string | undefined;
     try {
       result = await this.execute(command, assertShared);
       assertShared();
-      this.lastActivity.set(command.operation === 'asset' ? 'Agent uploaded an image asset' : (['edit', 'action-edit', 'colors', 'resize', 'tracks', 'move', 'label', 'worksheets', 'environment', 'asset'].includes(command.operation) && !(command.operation === 'environment' && command.payload['read'] === true)) ? 'Agent changes applied · Undo is available' : command.operation === 'save' ? 'Agent saved workbook' : ['kernel-control', 'action-run', 'action-cancel'].includes(command.operation) ? 'Agent command completed' : 'Agent read workbook');
+      this.lastActivity.set(command.operation === 'asset' ? 'Agent uploaded an image asset' : (['edit', 'action-edit', 'colors', 'resize', 'tracks', 'move', 'label', 'grid-lines', 'worksheets', 'environment', 'asset'].includes(command.operation) && !(command.operation === 'environment' && command.payload['read'] === true)) ? 'Agent changes applied · Undo is available' : command.operation === 'save' ? 'Agent saved workbook' : ['kernel-control', 'action-run', 'action-cancel'].includes(command.operation) ? 'Agent command completed' : 'Agent read workbook');
     } catch (failure) {
       error = failure instanceof Error ? failure.message : String(failure);
       if (this.binding === binding) this.lastActivity.set(error);
@@ -139,7 +139,7 @@ export class AgentConnection {
 function isCommand(value: unknown): value is AgentCommand {
   if (!value || typeof value !== 'object') return false;
   const command = value as Partial<AgentCommand>;
-  return typeof command.id === 'string' && ['read', 'context', 'edit', 'save', 'overview', 'inspect', 'dependencies', 'logs', 'diagnostics', 'kernel-status', 'kernel-control', 'actions', 'action-edit', 'action-run', 'action-cancel', 'colors', 'resize', 'tracks', 'move', 'label', 'worksheets', 'environment', 'asset', 'visual'].includes(command.operation ?? '') &&
+  return typeof command.id === 'string' && ['read', 'context', 'edit', 'save', 'overview', 'inspect', 'dependencies', 'logs', 'diagnostics', 'kernel-status', 'kernel-control', 'actions', 'action-edit', 'action-run', 'action-cancel', 'colors', 'resize', 'tracks', 'move', 'label', 'grid-lines', 'worksheets', 'environment', 'asset', 'visual'].includes(command.operation ?? '') &&
     !!command.payload && typeof command.payload === 'object' && !Array.isArray(command.payload) &&
     typeof command.expiresAt === 'number' && Number.isFinite(command.expiresAt);
 }

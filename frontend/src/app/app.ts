@@ -34,7 +34,7 @@ import { PYTHON_LABEL, PYTHON_KEYWORDS, PYTHON_COMPLETIONS, globalImportCompleti
 import { WorkbookCommandQueue } from './workbook-command-queue';
 import { AgentAccessComponent } from './agents/agent-access.component';
 import { AgentConnection, storedAgentPairing } from './agents/agent-connection';
-import type { AgentWorksheetChange, AgentEnvironmentChange } from './agents/live-agent-workbook';
+import type { AgentWorksheetChange, AgentEnvironmentChange, AgentGridLines } from './agents/live-agent-workbook';
 import { LiveAgentWorkbook } from './agents/live-agent-workbook';
 import type { AgentViewContext, AgentCellContext } from './agents/agent-context';
 import { themes, importThemes, type AppTheme } from './themes';
@@ -849,6 +849,7 @@ export class App implements OnInit, OnDestroy {
     },
     resizeWorksheet: async (sheet, columns, rows) => this.resizeAgentWorksheet(sheet, columns, rows),
     setTracks: async change => this.setAgentTracks(change),
+    gridLines: (change, check) => this.agentGridLines(change, check),
     moveCells: async (source, target, ids) => {
       if (!this.requireKernel()) throw new Error('Start the workbook kernel first.');
       const before = this.cells();
@@ -4510,6 +4511,7 @@ export class App implements OnInit, OnDestroy {
     this.noteContextMenu.set(null);
     this.closeCellContextMenu();
     this.sheetMenu.set(null);
+    this.headerMenu.set(null);
     this.moreOpen.set(false);
   }
 
@@ -5960,6 +5962,214 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  // ── Inserting and deleting rows and columns ─────────────────────────────
+  // Like a spreadsheet: the cells after the change move as a group (the cell move: references
+  // follow, inputs keep their values), tiles across it grow or shrink, custom row heights or
+  // column widths move along, and the grid grows or shrinks by as much. One undo step.
+  protected readonly cellPosition = cellPosition;
+  protected readonly columnLabel = columnLabel;
+  protected readonly headerMenu = signal<{ x: number; y: number; axis: 'row' | 'column'; index: number } | null>(null);
+  /** A deletion waiting for confirmation: its cells, and the cells/actions that read them. */
+  protected readonly gridDeletion = signal<{ axis: 'row' | 'column'; index: number; count: number; cells: number; users: string[] } | null>(null);
+
+  protected openHeaderMenu(event: MouseEvent, axis: 'row' | 'column', index: number): void {
+    if (!this.workbookEditing()) return;
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeCellContextMenu();
+    this.headerMenu.set({ x: event.clientX, y: event.clientY, axis, index });
+  }
+
+  protected columnNumber(label: string): number {
+    return cellPosition(`${label}1`)[0];
+  }
+
+  /** Insert an empty row before row `row` (1-based) of the active sheet. */
+  protected insertRow(row: number): Promise<void> {
+    return this.changeLinesHere('insert', 'row', row);
+  }
+
+  /** Insert an empty column before column number `column` (1-based) of the active sheet. */
+  protected insertColumn(column: number): Promise<void> {
+    return this.changeLinesHere('insert', 'column', column);
+  }
+
+  /** Delete row `row` of the active sheet, after confirming when cells would go. */
+  protected deleteRow(row: number): Promise<void> {
+    return this.changeLinesHere('delete', 'row', row);
+  }
+
+  protected deleteColumn(column: number): Promise<void> {
+    return this.changeLinesHere('delete', 'column', column);
+  }
+
+  protected async confirmGridDeletion(): Promise<void> {
+    const request = this.gridDeletion();
+    this.gridDeletion.set(null);
+    if (request) await this.changeLinesHere('delete', request.axis, request.index, true);
+  }
+
+  private async changeLinesHere(change: 'insert' | 'delete', axis: 'row' | 'column', index: number, confirmed = false): Promise<void> {
+    this.headerMenu.set(null);
+    this.closeCellContextMenu();
+    if (!this.requireKernel() || index < 1) return;
+    const sheet = this.activeSheet();
+    if (change === 'delete' && !confirmed) {
+      const removed = this.lineCells(sheet, axis, index, index);
+      if (removed.length) {
+        this.gridDeletion.set({ axis, index, count: 1, cells: removed.length, users: this.gridLineUsers(sheet, axis, index, 1) });
+        return;
+      }
+    }
+    const [column, row] = splitCellId(this.selectedId())[0] === sheet ? cellPosition(this.selectedId()) : [1, 1];
+    const done = change === 'insert' ? await this.insertGridLines(sheet, axis, index, 1) : await this.deleteGridLines(sheet, axis, index, 1);
+    if (!done) return;
+    // Select where the change happened (the move selected the cells it shifted).
+    const extent = axis === 'row' ? this.rows().length : this.columns().length;
+    const at = Math.min(index, extent);
+    this.selectCell(qualifyCellId(sheet, axis === 'row' ? `${columnLabel(column)}${at}` : `${columnLabel(at)}${row}`));
+  }
+
+  /** Cells of `sheet` whose anchor is in lines `from`..`to` (inclusive) along `axis`. */
+  private lineCells(sheet: string, axis: 'row' | 'column', from: number, to = Number.POSITIVE_INFINITY): CellDefinition[] {
+    const along = axis === 'row' ? 1 : 0;
+    return this.cells().filter(cell => splitCellId(cell.id)[0] === sheet
+      && cellPosition(cell.id)[along] >= from && cellPosition(cell.id)[along] <= to);
+  }
+
+  /** Cells and actions outside lines index..index+count-1 that read cells in them. */
+  protected gridLineUsers(sheet: string, axis: 'row' | 'column', index: number, count: number): string[] {
+    const removed = new Set(this.lineCells(sheet, axis, index, index + count - 1).map(cell => cell.id));
+    const graph = this.graph(), dependencies = graph.sourceDependencies ?? graph.dependencies;
+    const cells = this.cells().filter(cell => !removed.has(cell.id)
+      && ((dependencies[cell.id] ?? []).some(id => removed.has(id))
+        || Object.values(cell.view?.widget?.actionArguments ?? {}).some(binding => binding.cell !== undefined && removed.has(binding.cell))));
+    const actions = this.actionDefinitions().filter(action => actionReferencesCells(action.source, action.references, removed)
+      || Object.values(action.bindings).some(binding => binding.cell !== undefined && removed.has(binding.cell)));
+    return [...cells.map(cell => cell.name || cell.id), ...actions.map(action => `${action.label || action.name} (action)`)];
+  }
+
+  private patchSheetLayout(sheet: string, patch: (layout: SheetLayout) => SheetLayout): void {
+    const next = patch(this.layoutOf(sheet));
+    if (sheet === this.activeSheet()) this.applyLayout(next);
+    else this.storedLayouts.update(layouts => ({ ...layouts, [sheet]: next }));
+  }
+
+  /** Row heights (keys "3") or column widths (keys "C") after inserting (`delta` > 0) or
+   * deleting lines at `index`: the ones after move along, deleted ones go. */
+  private shiftTracks(tracks: Record<string, number>, axis: 'row' | 'column', index: number, delta: number): Record<string, number> {
+    const number = (key: string) => axis === 'row' ? Number(key) : this.columnNumber(key);
+    const key = (value: number) => axis === 'row' ? String(value) : columnLabel(value);
+    const next: Record<string, number> = {};
+    for (const [name, size] of Object.entries(tracks)) {
+      const at = number(name);
+      if (at < index) next[name] = size;
+      else if (delta > 0) next[key(at + delta)] = size;
+      else if (at >= index - delta) next[key(at + delta)] = size;
+    }
+    return next;
+  }
+
+  /** Tiles that start before `index` and reach into the changed lines grow over inserted ones,
+   * or shrink by the deleted ones they covered. Presentation only; true when one changed. */
+  private resizeCrossingTiles(sheet: string, axis: 'row' | 'column', index: number, delta: number): boolean {
+    const along = axis === 'row' ? 1 : 0;
+    let changed = false;
+    this.cells.update(cells => cells.map(cell => {
+      const span = cell.view?.span;
+      if (!span || splitCellId(cell.id)[0] !== sheet) return cell;
+      const start = cellPosition(cell.id)[along], end = start + span[along] - 1;
+      if (start >= index || end < index) return cell;
+      const covered = delta > 0 ? delta : -(Math.min(end, index - delta - 1) - index + 1);
+      const next: [number, number] = [...span];
+      next[along] = Math.max(1, span[along] + covered);
+      changed = true;
+      return { ...cell, view: { ...cell.view, span: next } };
+    }));
+    return changed;
+  }
+
+  private async agentGridLines(change: AgentGridLines, check: () => void): Promise<{ columns: number; rows: number }> {
+    if (!this.requireKernel()) throw new Error('Start the workbook kernel first.');
+    check();
+    const { sheet, axis, index, count } = change;
+    if (change.change === 'delete') {
+      const users = this.gridLineUsers(sheet, axis, index, count);
+      if (users.length && !change.allowBrokenReferences)
+        throw new Error(`Deleted cells are read by ${users.join(', ')}. Update those references first, or pass allow_broken_references=true.`);
+    }
+    const before = this.cells(), label = `Agent ${change.change} ${count} ${axis}${count === 1 ? '' : 's'}`;
+    const done = change.change === 'insert'
+      ? await this.insertGridLines(sheet, axis, index, count, label)
+      : await this.deleteGridLines(sheet, axis, index, count, label);
+    if (!done) throw new Error(this.evaluationError ?? 'The workbook refused the change.');
+    this.agentActivity.recordChanges(before, this.cells());
+    const layout = this.layoutOf(sheet);
+    return { columns: layout.columns, rows: layout.rows };
+  }
+
+  /** Insert `count` empty rows or columns before `index` on `sheet`. */
+  private async insertGridLines(sheet: string, axis: 'row' | 'column', index: number, count: number, label?: string): Promise<boolean> {
+    const extentKey = axis === 'row' ? 'rows' : 'columns', tracksKey = axis === 'row' ? 'rowHeights' : 'columnWidths';
+    const extent = this.layoutOf(sheet)[extentKey];
+    const moving = this.lineCells(sheet, axis, index);
+    if (moving.length) {
+      const [column, row] = cellPosition(moving[0].id);
+      const target = qualifyCellId(sheet, axis === 'row' ? `${columnLabel(column)}${row + count}` : `${columnLabel(column + count)}${row}`);
+      if (!await this.moveCellGroup(moving.map(cell => cell.id), moving[0].id, target)) return false; // refused: nothing changed
+    } else {
+      this.recordHistory(true, label);
+    }
+    // The move recorded the undo step; the layout and tiles belong to the same step.
+    const step = this.undoStack.at(-1);
+    if (step) { step.worksheetSize = sheet; if (label) step.label = label; }
+    const grown = this.resizeCrossingTiles(sheet, axis, index, count);
+    this.patchSheetLayout(sheet, layout => ({ ...layout, [extentKey]: Math.max(layout[extentKey], extent + count),
+      [tracksKey]: this.shiftTracks(layout[tracksKey], axis, index, count) }));
+    if (grown) await this.evaluateGraph(); // the kernel keeps the tiles' new spans
+    return true;
+  }
+
+  /** Delete `count` rows or columns from `index` on `sheet`: their cells go, the rest moves back. */
+  private async deleteGridLines(sheet: string, axis: 'row' | 'column', index: number, count: number, label?: string): Promise<boolean> {
+    const extentKey = axis === 'row' ? 'rows' : 'columns', tracksKey = axis === 'row' ? 'rowHeights' : 'columnWidths';
+    const along = axis === 'row' ? 1 : 0, last = index + count - 1;
+    const extent = this.layoutOf(sheet)[extentKey];
+    const removed = this.lineCells(sheet, axis, index, last);
+    this.recordHistory(true, label);
+    const step = this.undoStack.at(-1);
+    if (step) step.worksheetSize = sheet;
+    // Coordinate references to deleted cells must not silently read the cells that move into
+    // their place: unlabelled ones get a deleted_<coordinate> label first, so their readers fail
+    // with a clear NameError (labelled ones already do once the label is gone).
+    let document = this.currentDraftDocument();
+    for (const cell of removed.filter(cell => !cell.name)) {
+      const base = `deleted_${splitCellId(cell.id)[1]}`;
+      let name = base;
+      for (let suffix = 2; document.cells.some(other => splitCellId(other.id)[0] === sheet && other.name === name); suffix++) name = `${base}_${suffix}`;
+      document = refactorCellLabel(document, cell.id, name);
+    }
+    const removedIds = new Set(removed.map(cell => cell.id));
+    this.dropCellDrafts([...removedIds]);
+    this.actionDefinitions.set(document.actions ?? []);
+    this.cells.set(sortCells(document.cells.filter(cell => !removedIds.has(cell.id))));
+    this.resizeCrossingTiles(sheet, axis, index, -count);
+    await this.evaluateGraph(); // the kernel deletes them before the rest moves
+    const moving = this.lineCells(sheet, axis, last + 1);
+    if (moving.length) {
+      const [column, row] = cellPosition(moving[0].id);
+      const target = qualifyCellId(sheet, axis === 'row' ? `${columnLabel(column)}${row - count}` : `${columnLabel(column - count)}${row}`);
+      const entries = this.undoStack.length;
+      if (!await this.moveCellGroup(moving.map(cell => cell.id), moving[0].id, target)) return false;
+      if (this.undoStack.length > entries) this.undoStack.pop(); // one step: the deletion's
+    }
+    const occupied = Math.max(0, ...this.cells().filter(cell => splitCellId(cell.id)[0] === sheet)
+      .map(cell => cellPosition(cell.id)[along] + (cell.view?.span?.[along] ?? 1) - 1));
+    this.patchSheetLayout(sheet, layout => ({ ...layout, [extentKey]: Math.max(1, occupied, extent - count),
+      [tracksKey]: this.shiftTracks(layout[tracksKey], axis, index, -count) }));
+    return true;
+  }
+
   private async queueCellMove<T>(operation:()=>Promise<T>):Promise<T | undefined> {
     const generation=this.workbookCommands.generation;
     this.pendingMove.set(true);
@@ -6131,7 +6341,9 @@ export class App implements OnInit, OnDestroy {
       const prefix = snapshot.worksheetSize;
       const extent = sheets.layouts[prefix || sheets.first];
       if (extent) {
-        const layout = { ...this.layoutOf(prefix), columns: extent.columns, rows: extent.rows };
+        // The size, and the row heights and column widths an inserted row/column shifted.
+        const layout = { ...this.layoutOf(prefix), columns: extent.columns, rows: extent.rows,
+          columnWidths: { ...extent.columnWidths }, rowHeights: { ...extent.rowHeights } };
         if (prefix === this.activeSheet()) this.applyLayout(layout);
         else this.storedLayouts.update(layouts => ({ ...layouts, [prefix]: layout }));
       }

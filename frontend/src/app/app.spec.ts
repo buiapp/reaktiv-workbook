@@ -4550,6 +4550,100 @@ describe('App', () => {
     expect(app.variables()).toEqual({ REGION: 'EU' });
   });
 
+  it('inserts a row: cells below move down with their row heights, in one undo step', async () => {
+    const fixture = createWithFinancialModel(); fixture.detectChanges(); await fixture.whenStable();
+    const app = fixture.componentInstance as unknown as {
+      openDocument(document: ReturnType<typeof createSheetDocument>, path: null, start: boolean): void;
+      startWorkbook(): Promise<void>; setWorkbookEditing(value: boolean): void;
+      insertRow(row: number): Promise<void>; insertColumn(column: number): Promise<void>;
+      cells(): CellDefinition[]; rows(): readonly number[]; columns(): readonly string[];
+      rowHeights(): Record<string, number>; selectedId(): string; selectCell(id: string): void; undo(): void;
+    };
+    const document = createSheetDocument('Insert', 3, 4, [
+      { id: 'A1', kind: 'input', source: '2', name: 'base', enabled: true, trigger: 'auto' },
+      { id: 'A2', kind: 'formula', source: 'base * 2', name: 'doubled', enabled: true, trigger: 'auto' },
+      { id: 'B3', kind: 'formula', source: 'doubled + 1', name: 'more', enabled: true, trigger: 'auto' },
+    ]);
+    document.layout.rowHeights = { '1': 40, '3': 90 };
+    app.openDocument(document, null, false); await fixture.whenStable();
+    app.setWorkbookEditing(true); await app.startWorkbook(); fixture.detectChanges();
+    const runtime = TestBed.inject(RuntimeService) as unknown as RuntimeServiceStub;
+    const move = vi.spyOn(runtime, 'moveWorkbookCells').mockImplementation(async (cells, _source, _target, ids) => {
+      const shifted = cells.map(cell => ids?.includes(cell.id) ? { ...cell, id: cell.id.replace(/\d+$/, row => String(Number(row) + 1)) } : cell);
+      return { cells: shifted, graph: await runtime.apply(shifted, []), actions: [] };
+    });
+    app.selectCell('B2');
+    await app.insertRow(2);
+    expect(move).toHaveBeenCalledOnce();
+    const [, anchor, target, ids] = move.mock.calls[0];
+    expect([...(ids ?? [])].sort()).toEqual(['A2', 'B3']); // A1 is above the new row and stays
+    expect(anchor === 'A2' ? target : anchor === 'B3' ? target : '').toBe(anchor === 'A2' ? 'A3' : 'B4');
+    expect(app.cells().map(cell => cell.id).sort()).toEqual(['A1', 'A3', 'B4']);
+    expect(app.rowHeights()).toEqual({ '1': 40, '4': 90 });
+    expect(app.rows().length).toBe(5);
+    expect(app.selectedId()).toBe('B2'); // the new, empty row
+    app.undo(); fixture.detectChanges();
+    expect(app.cells().map(cell => cell.id).sort()).toEqual(['A1', 'A2', 'B3']);
+    expect(app.rowHeights()).toEqual({ '1': 40, '3': 90 });
+    expect(app.rows().length).toBe(4);
+
+    // A column right of the filled ones moves nothing and only widens the grid.
+    move.mockClear();
+    await app.insertColumn(3);
+    expect(move).not.toHaveBeenCalled();
+    expect(app.columns().length).toBe(4);
+  });
+
+  it('deletes a row: readers of its cells fail clearly, the rest moves up, tiles shrink, one undo step', async () => {
+    const fixture = createWithFinancialModel(); fixture.detectChanges(); await fixture.whenStable();
+    const app = fixture.componentInstance as unknown as {
+      openDocument(document: ReturnType<typeof createSheetDocument>, path: null, start: boolean): void;
+      startWorkbook(): Promise<void>; setWorkbookEditing(value: boolean): void;
+      insertRow(row: number): Promise<void>; deleteRow(row: number): Promise<void>; confirmGridDeletion(): Promise<void>;
+      gridDeletion(): { cells: number; users: string[] } | null;
+      cells(): CellDefinition[]; rows(): readonly number[]; rowHeights(): Record<string, number>; undo(): void;
+    };
+    const document = createSheetDocument('Delete', 4, 5, [
+      { id: 'A1', kind: 'input', source: '2', name: 'base', enabled: true, trigger: 'auto' },
+      { id: 'A2', kind: 'formula', source: 'A1 * 2', enabled: true, trigger: 'auto' },
+      { id: 'B3', kind: 'formula', source: 'A2 + base', name: 'total', enabled: true, trigger: 'auto' },
+      { id: 'C1', kind: 'formula', source: 'base', name: 'chart', enabled: true, trigger: 'auto', view: { display: 'rendered', span: [1, 4] } },
+    ]);
+    document.layout.rowHeights = { '2': 50, '4': 70 };
+    app.openDocument(document, null, false); await fixture.whenStable();
+    app.setWorkbookEditing(true); await app.startWorkbook(); fixture.detectChanges();
+    const runtime = TestBed.inject(RuntimeService) as unknown as RuntimeServiceStub;
+    vi.spyOn(runtime, 'moveWorkbookCells').mockImplementation(async (cells, source, target, ids) => {
+      const delta = Number(target.replace(/^\D+/, '')) - Number(source.replace(/^\D+/, ''));
+      const shifted = cells.map(cell => ids?.includes(cell.id) ? { ...cell, id: cell.id.replace(/\d+$/, row => String(Number(row) + delta)) } : cell);
+      return { cells: shifted, graph: await runtime.apply(shifted, []), actions: [] };
+    });
+    // Dependencies come from the kernel's graph; the stub has none, so state them.
+    const graph = (app as unknown as { graph: ReturnType<typeof signal<GraphResult>> }).graph;
+    graph.set({ ...graph(), sourceDependencies: { B3: ['A2', 'A1'], A2: ['A1'], C1: ['A1'] } });
+
+    await app.deleteRow(2);
+    expect(app.gridDeletion()).toEqual(expect.objectContaining({ cells: 1, users: ['total'] }));
+    await app.confirmGridDeletion();
+    const byName = (name: string) => app.cells().find(cell => cell.name === name);
+    expect(app.cells().some(cell => cell.id === 'A2' && cell.source === 'A1 * 2')).toBe(false);
+    expect(byName('total')).toEqual(expect.objectContaining({ id: 'B2', source: 'deleted_A2 + base' }));
+    expect(byName('chart')?.view?.span).toEqual([1, 3]);
+    expect(app.rowHeights()).toEqual({ '3': 70 });
+    expect(app.rows().length).toBe(4);
+    app.undo(); fixture.detectChanges();
+    expect(byName('total')).toEqual(expect.objectContaining({ id: 'B3', source: 'A2 + base' }));
+    expect(app.cells().some(cell => cell.id === 'A2')).toBe(true);
+    expect(byName('chart')?.view?.span).toEqual([1, 4]);
+    expect(app.rowHeights()).toEqual({ '2': 50, '4': 70 });
+    expect(app.rows().length).toBe(5);
+
+    // Inserting inside the tile grows it over the new row.
+    await app.insertRow(3);
+    expect(byName('chart')?.view?.span).toEqual([1, 5]);
+    expect(byName('total')?.id).toBe('B4');
+  });
+
   it('keeps each worksheet grid size when the sheets are reordered', async () => {
     const fixture = createWithFinancialModel(); fixture.detectChanges(); await fixture.whenStable();
     const app = fixture.componentInstance as unknown as {

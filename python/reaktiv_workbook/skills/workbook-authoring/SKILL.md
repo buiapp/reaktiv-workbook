@@ -194,6 +194,11 @@ and no user drafts are required. Inspect results for color, colorError and
 colorDependencies. Omitting expression clears it. New cells can use
 `view.color={"expr": "warning_color"}` in edit_cells; preserve their widget settings.
 
+insert_rows_or_columns and delete_rows_or_columns insert or delete whole rows or
+columns like a spreadsheet: later cells shift with their references, inputs keep their
+values, row heights/column widths and crossing tiles adjust, in one undo step. Deleting
+cells that others read is refused unless allow_broken_references=true.
+
 resize_worksheet changes the visible grid to explicit columns/rows; use the exact
 worksheet name from the overview, including the first sheet's name. It expands or
 shrinks the extent without inserting/deleting/renaming cells or shifting references.

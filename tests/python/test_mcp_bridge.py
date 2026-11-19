@@ -157,7 +157,8 @@ async def test_remote_http_mcp_auth_and_shared_app_routing(bind_host, allowed_ho
                         'get_diagnostics', 'get_kernel_status', 'control_kernel',
                         'get_authoring_guide', 'list_actions', 'upsert_action', 'run_action',
                         'cancel_action', 'get_rendering_capabilities', 'get_workbook_environment', 'update_workbook_environment',
-                        'manage_worksheet', 'add_image', 'inspect_cell_layout', 'inspect_visual', 'set_cell_view', 'set_cell_colors', 'resize_worksheet', 'set_worksheet_layout', 'move_cells', 'set_cell_label'}
+                        'manage_worksheet', 'add_image', 'inspect_cell_layout', 'inspect_visual', 'set_cell_view', 'set_cell_colors', 'resize_worksheet', 'set_worksheet_layout', 'move_cells', 'set_cell_label',
+                        'insert_rows_or_columns', 'delete_rows_or_columns'}
                     advertised = {tool.name: tool.annotations for tool in (await client.list_tools()).tools}
                     assert advertised['get_logs'].readOnlyHint is True
                     assert advertised['control_kernel'].destructiveHint is True
@@ -203,6 +204,11 @@ async def test_remote_http_mcp_auth_and_shared_app_routing(bind_host, allowed_ho
                             'label', {'cellId': 'A1', 'label': ''}),
                         ('resize_worksheet', {'revision': 'r1', 'worksheet': 'Sheet1', 'columns': 12, 'rows': 30},
                             'resize', {'worksheet': 'Sheet1', 'columns': 12, 'rows': 30}),
+                        ('insert_rows_or_columns', {'revision': 'r1', 'worksheet': 'Sheet1', 'axis': 'row', 'before': 3},
+                            'grid-lines', {'worksheet': 'Sheet1', 'axis': 'row', 'change': 'insert', 'index': 3, 'count': 1}),
+                        ('delete_rows_or_columns', {'revision': 'r1', 'worksheet': 'Sheet1', 'axis': 'column', 'start': 'B', 'count': 2},
+                            'grid-lines', {'worksheet': 'Sheet1', 'axis': 'column', 'change': 'delete', 'index': 'B', 'count': 2,
+                                           'allowBrokenReferences': False}),
                     ]:
                         request = asyncio.create_task(client.call_tool(name, {'workbook': 'one', **arguments}))
                         for _ in range(100):

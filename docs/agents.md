@@ -31,7 +31,7 @@ and cells you are looking at.
 | --- | --- |
 | Find and read | `list_workbooks`, `get_user_context`, `get_workbook_overview`, `read_workbook`, `inspect_cells`, `get_dependencies` |
 | Edit | `edit_cells`, `set_cell_label`, `move_cells`, `set_cell_view`, `set_cell_colors` |
-| Sheets and layout | `manage_worksheet`, `resize_worksheet`, `set_worksheet_layout`, `inspect_cell_layout` |
+| Sheets and layout | `manage_worksheet`, `resize_worksheet`, `insert_rows_or_columns`, `delete_rows_or_columns`, `set_worksheet_layout`, `inspect_cell_layout` |
 | Environment | `get_workbook_environment`, `update_workbook_environment`, `add_image` |
 | Actions | `list_actions`, `upsert_action`, `run_action`, `cancel_action` |
 | Debug | `get_logs`, `get_diagnostics`, `get_kernel_status`, `control_kernel`, `inspect_visual` |

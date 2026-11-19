@@ -11,7 +11,7 @@ import type { AgentCellLayout } from './agent-layout';
 
 export interface AgentCommand {
   id: string;
-  operation: 'read' | 'context' | 'edit' | 'save' | 'overview' | 'inspect' | 'dependencies' | 'logs' | 'diagnostics' | 'kernel-status' | 'kernel-control' | 'actions' | 'action-edit' | 'action-run' | 'action-cancel' | 'colors' | 'resize' | 'worksheets' | 'environment' | 'asset' | 'visual' | 'tracks' | 'move' | 'label';
+  operation: 'read' | 'context' | 'edit' | 'save' | 'overview' | 'inspect' | 'dependencies' | 'logs' | 'diagnostics' | 'kernel-status' | 'kernel-control' | 'actions' | 'action-edit' | 'action-run' | 'action-cancel' | 'colors' | 'resize' | 'worksheets' | 'environment' | 'asset' | 'visual' | 'tracks' | 'move' | 'label' | 'grid-lines';
   payload: Record<string, unknown>;
   expiresAt: number;
 }
@@ -23,6 +23,15 @@ export interface AgentWorksheetChange {
 export interface AgentEnvironmentChange { code?: string; imports?: string[]; packages?: string[]; }
 
 /** Narrow ports into the window's existing owners. The bridge never owns a document. */
+export interface AgentGridLines {
+  sheet: string;
+  axis: 'row' | 'column';
+  change: 'insert' | 'delete';
+  index: number;
+  count: number;
+  allowBrokenReferences: boolean;
+}
+
 export interface LiveAgentPorts {
   observe?(command: AgentCommand, execute: () => Promise<Record<string, unknown>>): Promise<Record<string, unknown>>;
   document(): SheetDocument;
@@ -44,6 +53,8 @@ export interface LiveAgentPorts {
   resizeWorksheet?(sheet: string, columns: number, rows: number): Promise<{ columns: number; rows: number }>;
   setTracks?(change: AgentTrackChange): Promise<void>;
   moveCells?(source: string, target: string, ids: string[] | undefined): Promise<void>;
+  /** Insert or delete rows/columns of a sheet (prefix '' for the first). */
+  gridLines?(change: AgentGridLines, check: () => void): Promise<{ columns: number; rows: number }>;
   labelCell?(id: string, label: string, check: () => void): Promise<void>;
   manageWorksheet?(change: AgentWorksheetChange, check: () => void): Promise<void>;
   updateEnvironment?(change: AgentEnvironmentChange, check: () => void): Promise<void>;
@@ -261,6 +272,26 @@ export class LiveAgentWorkbook {
         await this.ports.moveCells(source, target, ids);
       }
       check(); return this.read();
+    }
+    if (command.operation === 'grid-lines') {
+      if (!this.ports.kernelRunning()) throw new Error('Start the workbook kernel before inserting or deleting rows/columns.');
+      if (this.ports.drafts().length || this.ports.actionDrafts?.()) throw new Error('User drafts are open. Apply or discard them first.');
+      const name = command.payload['worksheet'];
+      if (typeof name !== 'string' || ![document.sheetName ?? 'Sheet1', ...(document.sheets ?? []).map(sheet => sheet.name)].includes(name))
+        throw new Error('Use an explicit worksheet name from the overview.');
+      const axis = command.payload['axis'], change = command.payload['change'], position = command.payload['index'];
+      if (axis !== 'row' && axis !== 'column') throw new Error("axis must be 'row' or 'column'.");
+      if (change !== 'insert' && change !== 'delete') throw new Error("change must be 'insert' or 'delete'.");
+      const index = typeof position === 'string' && axis === 'column' && /^[A-Z]+$/.test(position)
+        ? [...position].reduce((total, letter) => total * 26 + letter.charCodeAt(0) - 64, 0)
+        : integerOption(position, 0, 100000);
+      const count = integerOption(command.payload['count'] ?? 1, 0, 100);
+      if (!index || index < 1) throw new Error(axis === 'row' ? 'Give a row number from 1.' : 'Give a column letter (B) or number from 1.');
+      if (!count) throw new Error('count must be 1–100.');
+      if (!this.ports.gridLines) throw new Error('Inserting and deleting rows/columns is unavailable.');
+      const dimensions = await this.ports.gridLines({ sheet: name === (document.sheetName ?? 'Sheet1') ? '' : name, axis, change, index, count,
+        allowBrokenReferences: command.payload['allowBrokenReferences'] === true }, checkRevision);
+      check(); return { ...this.read(), worksheet: name, dimensions };
     }
     if (command.operation === 'resize') {
       const name = command.payload['worksheet'];

@@ -120,6 +120,7 @@ def create_live_server(bridge: LiveWorkbookBridge, *, allowed_hosts: list[str], 
         "Use upsert_action to compile/install methods without invoking them; run_action is a separate intentional command. "
         "Fixed set_cell_colors, resize_worksheet and set_worksheet_layout do not run Python; reactive color expressions require a running kernel. "
         "Use move_cells and set_cell_label for atomic reference-aware changes; never emulate moves with delete/create. "
+        "Use insert_rows_or_columns / delete_rows_or_columns to make room or remove lines: later cells shift and references follow. "
         "List shared workbooks, then use get_workbook_overview and inspect_cells for targeted reads. "
         "Inspect dependencies before editing and logs/diagnostics afterward; get_kernel_status answers during execution. "
         "Use observed vs source dependency modes accurately; partial/unobserved edges are not complete. "
@@ -502,6 +503,32 @@ def create_live_server(bridge: LiveWorkbookBridge, *, allowed_hosts: list[str], 
         undo step; current revision required, no running kernel/evaluation/save needed.
         """
         return await bridge.request_async(workbook, 'resize', {'revision': revision, 'worksheet': worksheet, 'columns': columns, 'rows': rows})
+
+    @server.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False))
+    async def insert_rows_or_columns(workbook: str, revision: str, worksheet: str, axis: Literal['row', 'column'],
+                                     before: int | str, count: int = 1) -> dict[str, Any]:
+        """Insert empty rows or columns, like a spreadsheet: `before` is a row number (axis
+        row) or a column letter/number (axis column); count 1–100. Cells from there on move by
+        count with their references, inputs keep values, row heights/column widths shift,
+        tiles crossing the insertion grow. Needs a running kernel and no user drafts. One
+        undo step; recalculates; unsaved. Returns the workbook and the sheet's dimensions.
+        """
+        return await bridge.request_async(workbook, 'grid-lines', {'revision': revision, 'worksheet': worksheet,
+            'axis': axis, 'change': 'insert', 'index': before, 'count': count})
+
+    @server.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHint=False))
+    async def delete_rows_or_columns(workbook: str, revision: str, worksheet: str, axis: Literal['row', 'column'],
+                                     start: int | str, count: int = 1,
+                                     allow_broken_references: bool = False) -> dict[str, Any]:
+        """Delete rows or columns and their cells, like a spreadsheet: `start` is a row number
+        or column letter/number; count 1–100. Later cells move back with their references;
+        tiles crossing the deleted lines shrink. Refused while other cells or actions read the
+        deleted cells, unless allow_broken_references=true: their coordinate references then
+        become deleted_<A1> names that fail clearly. One undo step; recalculates; unsaved.
+        """
+        return await bridge.request_async(workbook, 'grid-lines', {'revision': revision, 'worksheet': worksheet,
+            'axis': axis, 'change': 'delete', 'index': start, 'count': count,
+            'allowBrokenReferences': allow_broken_references})
 
     @server.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True, idempotentHint=False))
     async def set_worksheet_layout(workbook: str, revision: str, worksheet: str,

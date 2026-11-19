@@ -19,10 +19,10 @@ export interface AgentCellFeedback {
   origin?: 'created' | 'edited';
 }
 interface Mark { origin: 'created' | 'edited'; cell: CellDefinition; }
-const WRITES = new Set<AgentCommand['operation']>(['edit', 'colors', 'resize', 'tracks', 'move', 'label', 'action-edit', 'worksheets', 'environment', 'asset']);
+const WRITES = new Set<AgentCommand['operation']>(['edit', 'colors', 'resize', 'tracks', 'move', 'label', 'grid-lines', 'action-edit', 'worksheets', 'environment', 'asset']);
 const COMMANDS = new Set<AgentCommand['operation']>(['action-run', 'action-cancel', 'kernel-control', 'save']);
 const LABELS: Record<AgentCommand['operation'], string> = {
-  tracks: 'Size rows and columns', move: 'Move cells', label: 'Refactor cell label',
+  tracks: 'Size rows and columns', move: 'Move cells', label: 'Refactor cell label', 'grid-lines': 'Insert or delete rows/columns',
   worksheets: 'Manage worksheets', environment: 'Manage shared code and packages', asset: 'Add image', visual: 'Inspect visual content',
   read: 'Read workbook', context: 'Read current view', overview: 'Inspect workbook overview', inspect: 'Read cells',
   dependencies: 'Inspect dependencies', logs: 'Read logs', diagnostics: 'Inspect diagnostics', 'kernel-status': 'Read kernel status',

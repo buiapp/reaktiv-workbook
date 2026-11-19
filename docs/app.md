@@ -38,6 +38,10 @@ not hang the app.
   until you apply or discard it.
 - Drag a cell to move it; references follow. Copy, cut and paste work across sheets
   and windows.
+- Right-click a cell, or a row or column header, to **insert or delete a row or column**.
+  The cells after it move along and references follow; tiles across it grow or shrink.
+  Deleting cells that others read asks first, and their readers then show an error (their
+  references become `deleted_A3`) until you fix them. One undo step either way.
 - Select several cells and press **Alt+L** to collect them into a list
   (`[rent, groceries]`), or **Alt+D** for a dict.
 - **Ctrl/Cmd+Shift+F** searches labels and code across all sheets.

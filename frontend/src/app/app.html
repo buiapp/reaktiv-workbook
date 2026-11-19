@@ -657,6 +657,7 @@
                   role="button"
                   [title]="'Select the filled cells in column ' + column + ' (Ctrl/⌘+click to add)'"
                   (click)="selectColumn(column, $event)"
+                  (contextmenu)="openHeaderMenu($event, 'column', columnIndex + 1)"
                 >
                   {{ column }}
                   <span
@@ -676,6 +677,7 @@
                   role="button"
                   [title]="'Select the filled cells in row ' + row + ' (Ctrl/⌘+click to add)'"
                   (click)="selectRow(row, $event)"
+                  (contextmenu)="openHeaderMenu($event, 'row', row)"
                 >
                   {{ row }}
                   <span
@@ -1298,6 +1300,20 @@
 
     </section>
 
+    @if (headerMenu(); as menu) {
+      <div class="cell-context-menu" role="menu" [appKeepInView]="menu" (click)="$event.stopPropagation()">
+        <strong>{{ menu.axis === 'row' ? 'Row ' + menu.index : 'Column ' + columnLabel(menu.index) }}</strong>
+        @if (menu.axis === 'row') {
+          <button type="button" role="menuitem" [disabled]="!kernelRunning()" (click)="insertRow(menu.index)">Insert row above</button>
+          <button type="button" role="menuitem" [disabled]="!kernelRunning()" (click)="insertRow(menu.index + 1)">Insert row below</button>
+          <button type="button" role="menuitem" class="danger" [disabled]="!kernelRunning()" (click)="deleteRow(menu.index)">Delete row</button>
+        } @else {
+          <button type="button" role="menuitem" [disabled]="!kernelRunning()" (click)="insertColumn(menu.index)">Insert column left</button>
+          <button type="button" role="menuitem" [disabled]="!kernelRunning()" (click)="insertColumn(menu.index + 1)">Insert column right</button>
+          <button type="button" role="menuitem" class="danger" [disabled]="!kernelRunning()" (click)="deleteColumn(menu.index)">Delete column</button>
+        }
+      </div>
+    }
     @if (cellContextMenu(); as menu) {
       <div
         class="cell-context-menu"
@@ -1381,12 +1397,13 @@
             {{ definitionAt(menu.cellId)?.enabled ? 'Disable effect' : 'Enable effect' }}
           </button>
         }
-        <button type="button" role="menuitem" (click)="addRow(); closeCellContextMenu()">
-          Add row
-        </button>
-        <button type="button" role="menuitem" (click)="addColumn(); closeCellContextMenu()">
-          Add column
-        </button>
+        @let menuPosition = cellPosition(menu.cellId);
+        <button type="button" role="menuitem" [disabled]="!kernelRunning()" (click)="insertRow(menuPosition[1])">Insert row above</button>
+        <button type="button" role="menuitem" [disabled]="!kernelRunning()" (click)="insertRow(menuPosition[1] + 1)">Insert row below</button>
+        <button type="button" role="menuitem" [disabled]="!kernelRunning()" (click)="insertColumn(menuPosition[0])">Insert column left</button>
+        <button type="button" role="menuitem" [disabled]="!kernelRunning()" (click)="insertColumn(menuPosition[0] + 1)">Insert column right</button>
+        <button type="button" role="menuitem" class="danger" [disabled]="!kernelRunning()" (click)="deleteRow(menuPosition[1])">Delete row {{ menuPosition[1] }}</button>
+        <button type="button" role="menuitem" class="danger" [disabled]="!kernelRunning()" (click)="deleteColumn(menuPosition[0])">Delete column {{ columnLabel(menuPosition[0]) }}</button>
         @if (hasCellDraft(menu.cellId)) {
           <button type="button" role="menuitem" (click)="discardCellDraft(menu.cellId); closeCellContextMenu()">
             Discard draft
@@ -2519,6 +2536,27 @@
           Delete sheet…
         </button>
       }
+    </div>
+  }
+  @if (gridDeletion(); as request) {
+    <div class="close-prompt-backdrop" (click)="gridDeletion.set(null)">
+      <div class="close-prompt" role="alertdialog" aria-modal="true" aria-labelledby="delete-lines-title"
+        (click)="$event.stopPropagation()" (keydown.escape)="gridDeletion.set(null)">
+        <strong id="delete-lines-title">Delete {{ request.axis === 'row' ? 'row ' + request.index : 'column ' + columnLabel(request.index) }}?</strong>
+        <span>
+          Its {{ request.cells }} cell{{ request.cells === 1 ? '' : 's' }} {{ request.cells === 1 ? 'is' : 'are' }} deleted; the
+          {{ request.axis === 'row' ? 'rows below move up' : 'columns to the right move left' }}.
+          @if (request.users.length) {
+            Used by {{ request.users.join(', ') }}: {{ request.users.length === 1 ? 'it shows' : 'they show' }} an error until you fix the reference.
+          }
+          You can undo this.
+        </span>
+        <div class="close-prompt-actions">
+          <span class="spacer"></span>
+          <button type="button" class="secondary-button" (click)="gridDeletion.set(null)">Cancel</button>
+          <button type="button" class="primary-button danger-button" (click)="confirmGridDeletion()">Delete</button>
+        </div>
+      </div>
     </div>
   }
   @if (sheetToDelete() !== null) {
