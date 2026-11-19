@@ -160,3 +160,52 @@ def test_sandbox_installs_the_declared_packages_including_numpy(tmp_path: Path) 
     SheetDocument(name="plain", cells=(CellDefinition("A1", "formula", "1 + 1", name="two"),)).save(plain)
     assert "numpy" not in plain.read_text()
     assert not any(value.startswith(("numpy", "mcp")) for value in packages(plain))
+
+
+def test_an_editor_session_restarts_in_a_sandbox_with_its_packages(
+        workbook: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The first child (the editor session) hands over its workbook with a new package and asks
+    to restart; the launcher starts the next one sandboxed for that workbook, on the same port
+    with the same token, without opening another browser tab."""
+    record = tmp_path / "uv-calls.jsonl"
+    script = tmp_path / "uv"
+    script.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, sys\n"
+        "from reaktiv_workbook import SheetDocument\n"
+        f"calls = open({str(record)!r}, 'a+')\n"
+        "calls.seek(0); first = not calls.read()\n"
+        "calls.write(json.dumps({'args': sys.argv[1:], 'token': os.environ['REAKTIV_WORKBOOK_SESSION_TOKEN']}) + '\\n')\n"
+        "calls.close()\n"
+        "if first:\n"
+        "    SheetDocument(name='Declared', packages=('tabulate',)).save(os.environ['REAKTIV_WORKBOOK_HANDOFF'])\n"
+        "    raise SystemExit(75)\n"
+        "raise SystemExit(0)\n"
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("REAKTIV_UV", str(script))
+    assert sandbox.run_sandboxed(workbook, ["edit", str(workbook), "--port", "0", "--host", "127.0.0.1"]) == 0
+    first, second = [json.loads(line) for line in record.read_text().splitlines()]
+    assert first["token"] == second["token"]
+    child = lambda call: call["args"][call["args"].index("--") + 1:]  # noqa: E731
+    port = child(first)[child(first).index("--port") + 1]
+    assert port != "0" and child(second)[child(second).index("--port") + 1] == port
+    assert "--headless" not in child(first) and "--headless" in child(second)
+    assert "--resume" not in child(first) and child(second)[child(second).index("--resume") + 1].endswith("resume.workbook.py")
+    assert "tabulate" in second["args"] and "pandas>=2" not in second["args"]  # the handed-over packages
+
+
+def test_the_session_restart_request_hands_over_the_editor_workbook(workbook: Path) -> None:
+    from reaktiv_workbook.session import WorkbookSession
+    with WorkbookSession(workbook) as session:
+        received: list[SheetDocument] = []
+        with pytest.raises(RuntimeError, match="restart this script yourself"):
+            session._runtime.dispatch("/v1/session-restart", {"document": session.document.to_dict()})
+        session.restart = received.append
+        edited = SheetDocument(name="Declared", packages=("tabulate",),
+                               cells=(CellDefinition("A1", "formula", "2 + 2", name="four"),))
+        assert session._runtime.dispatch("/v1/session-restart", {"document": edited.to_dict()}) == {"restarting": True}
+        assert received[0].packages == ("tabulate",) and received[0].cells[0].source == "2 + 2"
+        environment = session.state()["environment"]
+        assert environment["missing"] == ["schemdraw"] or "schemdraw" in environment["missing"]
+        assert environment["sandboxed"] is False

@@ -113,7 +113,9 @@ from the command line.
 | `reaktiv-workbook edit` | your own Python | anything installed there; `--sandbox` installs the workbook's packages for you |
 | The web app | Pyodide, in the browser | NumPy, pandas, Matplotlib, Plotly and other pure-Python packages; browser networking only |
 
-Use `reaktiv-workbook edit` for local files, databases and native packages.
+Use `reaktiv-workbook edit` for local files, databases and native packages. Added a package
+there? *Settings → Workbook → Restart with these packages* restarts Python in a sandbox that
+has it ([Command line](cli.md)).
 
 ## Keyboard shortcuts
 

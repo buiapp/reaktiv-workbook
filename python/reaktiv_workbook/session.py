@@ -8,6 +8,7 @@ import inspect
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import replace
+import os
 from pathlib import Path
 import secrets
 from threading import Event, Thread, get_ident
@@ -18,6 +19,7 @@ from reaktiv import untracked
 from .model import SheetDocument, make_snapshot
 from .narrowing import as_mapping, string_list
 from .runtime import RuntimeServer
+from .sandbox import SESSION_TOKEN
 from .workbook import WorkbookSnapshot
 
 PASSIVE = frozenset(
@@ -164,6 +166,16 @@ class _SessionRuntime(RuntimeServer):
             raise RuntimeError(
                 "This workbook is owned by its Python script; restart the session from that script"
             )
+        if path == "/v1/session-restart":
+            # Restart with the workbook's packages: the CLI that owns this session starts a new
+            # (sandboxed) Python with the editor's workbook, unsaved edits included.
+            if self.session.restart is None:
+                raise RuntimeError("Only reaktiv-workbook edit can restart its Python; restart this script yourself")
+            value = as_mapping(payload.get("document"))
+            if value is None:
+                raise TypeError("document must be an object")
+            self.session.restart(SheetDocument.from_dict(value))
+            return {"restarting": True}
         if (
             path in MUTATIONS and path not in {"/v1/run-action", "/v1/set-inputs"}
             and payload.get("sessionRevision") != self.session.revision
@@ -232,10 +244,14 @@ class WorkbookSession:
     Python objects and should be treated as read-only.
     """
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, document: SheetDocument | None = None) -> None:
+        """``document`` starts the session from that workbook (a restart's unsaved state)
+        instead of the file; saving still writes ``path``."""
         self.path = Path(path).resolve()
         self.mode: Literal['embedded', 'edit', 'run'] = 'embedded'
-        document = SheetDocument.load(self.path)
+        # Set by the CLI (`reaktiv-workbook edit`): restart Python with the editor's workbook.
+        self.restart: Callable[[SheetDocument], None] | None = None
+        document = document if document is not None else SheetDocument.load(self.path)
         self.note_source_format()
         self.loop = asyncio.new_event_loop()
         self._closed = False
@@ -247,7 +263,8 @@ class WorkbookSession:
             "sheet_session_batch", default=None
         )
         self._server: Any = None  # api.serving.BackgroundServer, once an editor is opened
-        self._token = secrets.token_urlsafe(32)
+        # From the CLI that restarted this session; not left in the environment of cell code.
+        self._token = os.environ.pop(SESSION_TOKEN, None) or secrets.token_urlsafe(32)
         self._ready = Event()
         self._runtime: _SessionRuntime
         self._thread = Thread(
@@ -473,11 +490,30 @@ class WorkbookSession:
                 return
             self.publish(await self._runtime.workbook.tick_timer_async(cell_id))
 
+    @property
+    def token(self) -> str:
+        return self._token
+
+    @property
+    def port(self) -> int | None:
+        return None if self._server is None else self._server.port
+
+    def environment(self) -> dict[str, Any]:
+        """The session's Python: sandboxed or not, whether the CLI can restart it with the
+        workbook's packages, and which declared packages are not installed."""
+        from .sandbox import SANDBOXED, find_uv, missing_packages
+        return {
+            'sandboxed': bool(os.environ.get(SANDBOXED)),
+            'restart': self.restart is not None and find_uv() is not None,
+            'missing': missing_packages(self._runtime.workbook.document.packages),
+        }
+
     def state(self, *, include_assets: bool = False) -> dict[str, Any]:
         from .session_assets import read_assets
         return {
             'mode': self.mode,
             'path': str(self.path),
+            'environment': self.environment(),
             **({'assets': read_assets(self.path, self.document)} if include_assets else {}),
             "revision": self.revision,
             "document": {**replace(self._runtime.workbook.document, snapshot=None).to_dict(), "sourceFormatVersion": self._source_format_version, "sourceFileName": self.path.name},

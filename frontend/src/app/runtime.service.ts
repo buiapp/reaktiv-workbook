@@ -674,6 +674,44 @@ export class RuntimeService {
     return state;
   }
 
+  /** A CLI session restarts its Python (in a sandbox) with the workbook's packages; resolves
+   * with the new session, which keeps the address and token. uv may download packages first. */
+  async restartSession(document: SheetDocument): Promise<EmbeddedSessionState> {
+    const pid = async (): Promise<number | null> => {
+      try {
+        const response = await fetch(`${this.remoteUrl}/health`, { headers: this.kernelToken ? { Authorization: `Bearer ${this.kernelToken}` } : {} });
+        return response.ok ? ((await response.json()) as { pid?: number }).pid ?? null : null;
+      } catch { return null; }
+    };
+    const before = await pid();
+    // While loading, the session monitor pauses: the old process going away is expected.
+    this.status.set('loading');
+    this.statusMessage.set("Restarting Python with the workbook's packages…");
+    this.error.set(null);
+    try {
+      await this.http.request('/v1/session-restart', { document }, false);
+      for (const deadline = Date.now() + 10 * 60_000; Date.now() < deadline;) {
+        await new Promise(resolve => setTimeout(resolve, 600));
+        const current = await pid();
+        if (current === null || current === before) continue;
+        this.sessionRevision = 0;
+        const state = await this.readSession();
+        if (!state) throw new Error('The restarted Python returned no workbook.');
+        this.packages = [...state.document.environment.packages];
+        this.variables = { ...state.document.environment.variables };
+        this.status.set('ready');
+        this.statusMessage.set('Attached to Python script');
+        return state;
+      }
+      throw new Error('Python did not come back within 10 minutes. See the terminal running reaktiv-workbook.');
+    } catch (error) {
+      this.status.set('error');
+      this.statusMessage.set('Python restart failed');
+      this.error.set(error instanceof Error ? error.message : String(error));
+      throw error;
+    }
+  }
+
   async resetSessionInput(cellId: string): Promise<GraphResult> {
     return this.remoteCall<GraphResult>('/v1/session-reset-input', {cellId});
   }

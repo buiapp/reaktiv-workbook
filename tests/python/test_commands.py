@@ -44,7 +44,9 @@ def test_commands_dispatch_only_explicit_launch_commands(workbook, monkeypatch, 
     calls = []
     monkeypatch.setattr(standalone, 'serve_workbook', lambda path, **kwargs: calls.append((path, kwargs)) or 0)
     assert command_main(['edit', str(workbook), '--headless', '--port', '8765']) == 0
-    assert calls == [(workbook, {'mode': 'edit', 'host': '127.0.0.1', 'port': 8765, 'open_browser': False, 'mcp_port': None})]
+    handoff = calls[0][1].pop('handoff')  # where the editor's workbook goes on a restart
+    assert handoff.name.endswith('.workbook.py') and not handoff.exists()
+    assert calls == [(workbook, {'mode': 'edit', 'host': '127.0.0.1', 'port': 8765, 'open_browser': False, 'mcp_port': None, 'resume': None})]
     assert command_main(['run', str(workbook), '--no-browser']) == 0
     assert len(calls) == 2
     assert command_main(['check', str(workbook)]) == 0
@@ -116,7 +118,7 @@ def test_cli_editor_lifecycle_creates_once_and_closes_server(tmp_path, monkeypat
     path = tmp_path / 'new.sheet.py'
     url = []
     monkeypatch.setattr(standalone.webbrowser, 'open', lambda value: url.append(value))
-    monkeypatch.setattr(standalone, 'wait_for_shutdown', lambda: None)
+    monkeypatch.setattr(standalone, 'wait_for_shutdown', lambda *_: None)
     assert standalone.serve_workbook(path, mode='edit') == 0
     assert path.is_file() and len(url) == 1
     original = path.read_bytes()
@@ -167,7 +169,7 @@ def test_new_workbooks_use_the_workbook_suffix_and_sheet_files_keep_working(tmp_
     root.mkdir()
     (root / 'index.html').write_text('<app-root></app-root>')
     monkeypatch.setattr(standalone, 'frontend_root', lambda: root)
-    monkeypatch.setattr(standalone, 'wait_for_shutdown', lambda: None)
+    monkeypatch.setattr(standalone, 'wait_for_shutdown', lambda *_: None)
 
     created = tmp_path / 'budget.workbook.py'
     assert standalone.serve_workbook(created, mode='edit', open_browser=False) == 0
@@ -237,7 +239,7 @@ def web_root(tmp_path, monkeypatch):
     SheetDocument(name='welcome', cells=(CellDefinition('A1', 'input', '7', name='seven'),)).save(root / 'examples' / 'welcome.workbook.py')
     SheetDocument(name='motion').save(root / 'examples' / 'education' / 'motion.workbook.py')
     monkeypatch.setattr(standalone, 'frontend_root', lambda: root)
-    monkeypatch.setattr(standalone, 'wait_for_shutdown', lambda: None)
+    monkeypatch.setattr(standalone, 'wait_for_shutdown', lambda *_: None)
     return root
 
 

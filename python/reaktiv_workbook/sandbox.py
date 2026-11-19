@@ -13,10 +13,13 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
 import shutil
 import signal
+import socket
 import subprocess
 import sys
+import tempfile
 from importlib.metadata import PackageNotFoundError, distribution
 from typing import Any, Sequence, cast
 from urllib.parse import unquote, urlparse
@@ -112,6 +115,10 @@ def install_arguments(name: str) -> list[str]:
 
 # Set in the sandboxed child process.
 SANDBOXED = "REAKTIV_WORKBOOK_SANDBOXED"
+# Where a sandboxed session writes its workbook when the editor asks to restart it.
+HANDOFF = "REAKTIV_WORKBOOK_HANDOFF"
+# The access token a restarted session keeps, so the browser stays attached.
+SESSION_TOKEN = "REAKTIV_WORKBOOK_SESSION_TOKEN"
 
 
 def interactive() -> bool:
@@ -170,40 +177,88 @@ def sandbox_command(uv: str, file: Path, child_arguments: Sequence[str]) -> list
     return [*command, "--", "reaktiv-workbook", *child_arguments]
 
 
-def run_sandboxed(file: Path, child_arguments: Sequence[str]) -> int:
+def _free_port(host: str) -> int:
+    family = socket.AF_INET6 if ":" in host else socket.AF_INET
+    with socket.socket(family, socket.SOCK_STREAM) as probe:
+        probe.bind((host, 0))
+        return int(probe.getsockname()[1])
+
+
+def _pin_port(arguments: list[str]) -> list[str]:
+    """A restarted session must keep its address: choose the free port once, here."""
+    if "--port" not in arguments:
+        return arguments
+    index = arguments.index("--port") + 1
+    if arguments[index] != "0":
+        return arguments
+    host = arguments[arguments.index("--host") + 1] if "--host" in arguments else "127.0.0.1"
+    return [*arguments[:index], str(_free_port(host)), *arguments[index + 1:]]
+
+
+def _wait(child: subprocess.Popen[bytes]) -> int:
+    """The child's exit code. On Ctrl+C the child normally receives the same signal from the
+    terminal and shuts down on its own; if it is still running shortly afterwards (SIGINT
+    was sent to this process only), it is forwarded."""
+    while True:
+        try:
+            return child.wait()
+        except KeyboardInterrupt:
+            try:
+                return child.wait(timeout=_INTERRUPT_GRACE)
+            except subprocess.TimeoutExpired:
+                child.send_signal(signal.SIGINT)
+            except KeyboardInterrupt:
+                continue
+
+
+def run_sandboxed(file: Path, child_arguments: Sequence[str], *, resume: Path | None = None,
+                  token: str | None = None) -> int:
     """Run the command sandboxed and return its exit code.
 
-    Forwards SIGTERM. On Ctrl+C the child normally receives the same signal from the
-    terminal and shuts down on its own; if it is still running shortly afterwards
-    (SIGINT was sent to this process only), it is forwarded. Stopping the launcher
-    therefore never orphans a running server.
+    An editor session can ask to restart with its workbook's packages: it writes the workbook
+    (unsaved edits included) to the handoff file and exits with ``RESTART_EXIT``; the session
+    then starts again in a sandbox built for that file, on the same address with the same
+    access token, so the browser reconnects. ``resume``/``token`` continue a session that
+    was not sandboxed yet. Forwards SIGTERM; stopping the launcher never orphans a server.
     """
+    from .standalone import RESTART_EXIT
     uv = find_uv()
     if uv is None:
         raise SandboxError("--sandbox requires uv: https://docs.astral.sh/uv/getting-started/installation/")
-    command = sandbox_command(uv, file, child_arguments)
-    environment = {key: value for key, value in os.environ.items()
-                   if key not in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT")}
-    environment[SANDBOXED] = "1"  # the child has the packages: it never offers a sandbox again
-    print(f"Preparing sandbox for {file} (uv caches it for later runs)…", file=sys.stderr, flush=True)
-    child = subprocess.Popen(command, env=environment)
+    arguments = _pin_port(list(child_arguments))
+    token = token or secrets.token_urlsafe(32)
+    folder = Path(tempfile.mkdtemp(prefix="reaktiv-workbook-"))
+    handoff = folder / "restart.workbook.py"
+    child: subprocess.Popen[bytes] | None = None
     previous = None
     if hasattr(signal, "SIGTERM"):
         def forward(signum: int, _frame: Any) -> None:
-            child.send_signal(signum)
+            if child is not None:
+                child.send_signal(signum)
 
         previous = signal.signal(signal.SIGTERM, forward)
     try:
         while True:
-            try:
-                return child.wait()
-            except KeyboardInterrupt:
-                try:
-                    return child.wait(timeout=_INTERRUPT_GRACE)
-                except subprocess.TimeoutExpired:
-                    child.send_signal(signal.SIGINT)
-                except KeyboardInterrupt:
-                    continue
+            source = file if resume is None else resume
+            command = sandbox_command(uv, source, [*arguments, *(["--resume", str(resume)] if resume else [])])
+            environment = {key: value for key, value in os.environ.items()
+                           if key not in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT")}
+            environment[SANDBOXED] = "1"  # the child has the packages: it never offers a sandbox again
+            environment[HANDOFF] = str(handoff)
+            environment[SESSION_TOKEN] = token
+            print(f"Preparing sandbox for {file} (uv caches it for later runs)…", file=sys.stderr, flush=True)
+            child = subprocess.Popen(command, env=environment)
+            code = _wait(child)
+            if code != RESTART_EXIT or not handoff.is_file():
+                return code
+            # Restart: the next session starts from the handed-over workbook; the browser
+            # tab is still open, so no new one.
+            resume = folder / "resume.workbook.py"
+            handoff.replace(resume)
+            if "--headless" not in arguments:
+                arguments.append("--headless")
+            print("Restarting with the workbook's packages…", file=sys.stderr, flush=True)
     finally:
         if previous is not None:
             signal.signal(signal.SIGTERM, previous)
+        shutil.rmtree(folder, ignore_errors=True)

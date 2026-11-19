@@ -1,9 +1,10 @@
 """CLI-owned local IDE lifecycle and packaged frontend discovery."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 import signal
-from threading import Event
+from threading import Event, Timer
 from types import FrameType
 from typing import Literal
 import webbrowser
@@ -23,8 +24,8 @@ def frontend_root() -> Path:
     raise RuntimeError('The browser IDE is missing. Install an official reaktiv-workbook wheel, or build this checkout with npm run build.')
 
 
-def wait_for_shutdown() -> None:
-    stopped = Event()
+def wait_for_shutdown(stopped: Event | None = None) -> None:
+    stopped = stopped or Event()
     def stop(_signal: int, _frame: FrameType | None) -> None:
         stopped.set()
     previous = signal.signal(signal.SIGTERM, stop)
@@ -123,8 +124,24 @@ def create_workbook(path: Path, example: str | None = None) -> None:
         output.write(source)
 
 
+# A session that ended to restart Python with the workbook's packages exits with this code;
+# the sandbox launcher then starts it again (sysexits EX_TEMPFAIL: try again).
+RESTART_EXIT = 75
+
+
+@dataclass(frozen=True)
+class Restart:
+    """The editor asked to restart Python: the workbook is in the handoff file; the new
+    session keeps the address and access token, so the browser reconnects."""
+    port: int
+    token: str
+
+
 def serve_workbook(path: Path, *, mode: Literal['edit', 'run'], host: str = '127.0.0.1',
-                   port: int = 0, open_browser: bool = True, mcp_port: int | None = None) -> int:
+                   port: int = 0, open_browser: bool = True, mcp_port: int | None = None,
+                   resume: Path | None = None, handoff: Path | None = None) -> int | Restart:
+    """Serve until Ctrl+C. ``resume`` starts from that workbook (a restart's unsaved state);
+    with ``handoff`` the editor can restart Python: its workbook is written there."""
     # Check assets before creating a new file or running any workbook code.
     frontend_root()
     path = path.resolve()
@@ -132,9 +149,19 @@ def serve_workbook(path: Path, *, mode: Literal['edit', 'run'], host: str = '127
         create_workbook(path)
     if not path.is_file():
         raise FileNotFoundError(f'Workbook not found: {path}')
-    starter = mode == 'edit' and is_untouched_starter(path)
-    with WorkbookSession.load(path) as session:
+    starter = resume is None and mode == 'edit' and is_untouched_starter(path)
+    initial = SheetDocument.load(resume) if resume is not None else None
+    stopped = Event()
+    restarting: list[bool] = []
+    with WorkbookSession(path, initial) as session:
         session.mode = mode
+        if handoff is not None and mode == 'edit':
+            def restart(document: SheetDocument) -> None:
+                handoff.write_text(document.dumps(), encoding='utf-8')
+                restarting.append(True)
+                # A moment for the HTTP response to reach the editor before the server stops.
+                Timer(0.3, stopped.set).start()
+            session.restart = restart
         url = session.open_editor(host=host, port=port, open_browser=False)
         if starter:
             # The editor offers the getting-started guide and examples for a blank workbook.
@@ -150,7 +177,9 @@ def serve_workbook(path: Path, *, mode: Literal['edit', 'run'], host: str = '127
             print(f'Reaktiv Workbook · {mode} · {path}\n{url}\n{agents}Press Ctrl+C to stop.', flush=True)
             if open_browser:
                 webbrowser.open(url)
-            wait_for_shutdown()
+            wait_for_shutdown(stopped)
+            if restarting:
+                return Restart(session.port or port, session.token)
         finally:
             if bridge is not None:
                 bridge.stop()

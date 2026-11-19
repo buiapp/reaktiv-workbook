@@ -53,7 +53,7 @@ import { cellMemberNames, refactorCellLabel, rewriteActionWorksheet, actionRefer
 import type { ActionDefinition, ActionBinding } from './sheet.types';
 import { PaneActivationDirective } from './pane-activation.directive';
 import { DEBOUNCED_WIDGETS, WIDGET_STATES, isWidgetDebounce, liveUpdateTiming, widgetBlocked, widgetSettingText } from './widget-config';
-import { linkedAgentBridge, linkedSession, withoutAgentToken, type EmbeddedSessionState } from './embedded-session';
+import { linkedAgentBridge, linkedSession, withoutAgentToken, type EmbeddedSessionState, type SessionEnvironment } from './embedded-session';
 import { ViewZoomDirective } from './view-zoom.directive';
 import type { EditorLanguageService } from './editor-intelligence';
 import { CellTypeBadgeComponent, CELL_TYPES, CELL_TYPE_ORDER } from './cell-type-badge.component';
@@ -6824,7 +6824,37 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
+  /** CLI sessions: the session's Python and the declared packages missing from it. */
+  protected readonly sessionEnvironment = signal<SessionEnvironment | null>(null);
+  private readonly dismissedMissingPackages = signal('');
+  /** Declared packages this session's Python lacks, until dismissed (for that list). */
+  protected readonly missingPackages = computed(() => {
+    const missing = this.sessionEnvironment()?.missing ?? [];
+    return missing.length && missing.join(' ') !== this.dismissedMissingPackages() ? missing : [];
+  });
+
+  protected dismissMissingPackages(): void {
+    this.dismissedMissingPackages.set((this.sessionEnvironment()?.missing ?? []).join(' '));
+  }
+
+  /** Restart the CLI session's Python, in a sandbox with the workbook's packages (the
+   * settings fields included); the editor's workbook, unsaved edits too, carries over. */
+  protected async restartWithPackages(): Promise<void> {
+    if (!this.requireKernel() || !this.sessionEnvironment()?.restart) return;
+    this.commitNoteDraftIfNeeded();
+    this.takeEnvironmentFields();
+    this.settingsOpen.set(false);
+    try {
+      const state = await this.runtime.restartSession(this.currentDraftDocument());
+      this.acceptSessionState(state, false);
+      this.logSystem('info', 'Python restarted with the workbook packages');
+    } catch (error) {
+      this.evaluationError = `Could not restart Python: ${pythonErrorMessage(error)}`;
+    }
+  }
+
   private acceptSessionState(state: EmbeddedSessionState, stashDraft = true): void {
+    this.sessionEnvironment.set(state.environment ?? null);
     if (stashDraft && this.editorCellId !== null) this.stashEditorDraft(this.editorCellId);
     const note = this.activeNoteId();
     const oldNote = this.definitionAt(note);

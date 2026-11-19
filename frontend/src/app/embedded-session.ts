@@ -1,10 +1,21 @@
 import type { GraphResult, SheetDocument } from './sheet.types';
 
+export interface SessionEnvironment {
+  /** Running in a uv sandbox built from the workbook's packages. */
+  sandboxed: boolean;
+  /** `reaktiv-workbook edit` can restart this Python (in a sandbox; needs uv). */
+  restart: boolean;
+  /** Declared packages that are not installed in this Python. */
+  missing: string[];
+}
+
 export interface EmbeddedSessionState {
   mode?: 'embedded' | 'edit' | 'run';
   /** The workbook file the CLI session owns (absolute path on its machine). */
   path?: string;
   assets?: Record<string, string>;
+  /** CLI sessions: the session's Python, and whether the CLI can restart it with the workbook's packages. */
+  environment?: SessionEnvironment;
   revision: number;
   document: SheetDocument;
   graph: GraphResult;

@@ -30,6 +30,13 @@ Without `--sandbox`, cells run in the Python that started the command, so instal
 packages your workbook uses there (`pip install plotly pandas`). If some are missing,
 the command names them and, when uv is available, offers to use a sandbox.
 
+**Adding packages while editing.** After you add a package in *Settings → Workbook*,
+choose **Restart with these packages** (in a sandbox) or **Restart in a sandbox** (in your
+own Python); the editor also offers it when declared packages are missing. Python
+restarts in a sandbox with the new list, on the same address: the browser reconnects and
+the workbook stays open, unsaved edits included. Values computed at runtime are
+recomputed. Your own Python environment is never changed.
+
 ## Check and evaluate
 
 | Command | Does |

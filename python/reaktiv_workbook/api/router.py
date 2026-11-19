@@ -50,6 +50,7 @@ from .schemas import (
     RequestModel,
     ResampleRequest,
     SessionRequest,
+    SessionRestartRequest,
     SessionSaveRequest,
     VerifyRequest,
     WidgetMessageRequest,
@@ -224,6 +225,11 @@ def session_state(runtime: RuntimeDep, request: SessionRequest) -> JSONResponse:
 @session.post("/session-save", summary="Apply the editor's workbook and save it to the script's file")
 def session_save(runtime: RuntimeDep, request: SessionSaveRequest) -> JSONResponse:
     return _run(runtime, "/v1/session-save", request)
+
+
+@session.post("/session-restart", summary="Restart the CLI session's Python with the editor's workbook and its packages")
+def session_restart(runtime: RuntimeDep, request: SessionRestartRequest) -> JSONResponse:
+    return _run(runtime, "/v1/session-restart", request)
 
 
 @session.post('/git', summary="Run an allowed git command in the workbook's folder (CLI sessions)")

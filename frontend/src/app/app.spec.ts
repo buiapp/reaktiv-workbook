@@ -5036,6 +5036,43 @@ describe('App start', () => {
     fixture.destroy(); history.replaceState(null, '', '/');
   });
 
+  it('names packages missing from a CLI session and restarts it in a sandbox with them', async () => {
+    localStorage.clear();
+    history.replaceState(null, '', `/?session=${encodeURIComponent('http://127.0.0.1:8765')}#token=t`);
+    const runtime = new RuntimeServiceStub() as RuntimeServiceStub & {
+      attachSession(): Promise<unknown>; monitorSession(): () => void;
+      restartSession(document: ReturnType<typeof createSheetDocument>): Promise<unknown>;
+    };
+    const document = createSheetDocument('Prices', 2, 2, [
+      {id: 'A1', kind: 'formula', source: '1 + 1', name: 'two', enabled: true, trigger: 'auto'},
+    ], ['pandas']);
+    runtime.attachSession = async () => ({revision: 1, mode: 'edit', document, graph,
+      environment: {sandboxed: false, restart: true, missing: ['pandas']}});
+    runtime.monitorSession = () => () => {};
+    const restarted: ReturnType<typeof createSheetDocument>[] = [];
+    runtime.restartSession = async sent => {
+      restarted.push(sent);
+      return {revision: 1, mode: 'edit', document: sent, graph, environment: {sandboxed: true, restart: true, missing: []}};
+    };
+    await TestBed.configureTestingModule({
+      imports: [App],
+      providers: [{ provide: RuntimeService, useValue: runtime }],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const notice = () => compiled.querySelector('.recovery-toast');
+    expect(notice()?.textContent).toContain('Not installed in this Python: pandas');
+    const restart = [...notice()!.querySelectorAll('button')].find(button => button.textContent?.includes('Restart in a sandbox'));
+    restart!.click();
+    await fixture.whenStable(); fixture.detectChanges();
+    expect(restarted).toHaveLength(1);
+    expect(restarted[0].environment.packages).toEqual(['pandas']);
+    expect(restarted[0].cells.some(cell => cell.name === 'two')).toBe(true);
+    expect(notice()).toBeNull(); // the sandbox has the packages
+    fixture.destroy(); history.replaceState(null, '', '/');
+  });
+
   it('starts with a blank project and offers the examples in the first-run guide', async () => {
     localStorage.clear();
     const runtime = new RuntimeServiceStub();

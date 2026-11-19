@@ -2834,8 +2834,19 @@
 
         <label class="field-label" for="package-requirements">Package dependencies</label>
         <p class="settings-help">
-          One PEP 508 requirement per line. The remote backend owns installation; Pyodide installs
-          compatible packages in the browser.
+          One PEP 508 requirement per line.
+          @if (embeddedSession()) {
+            @if (sessionEnvironment()?.sandboxed) {
+              This workbook runs in a sandbox made from these packages: restart it to install changes.
+            } @else if (sessionEnvironment()?.restart) {
+              This workbook runs in the Python that started reaktiv-workbook. Restart in a sandbox to
+              install these packages there (uv), or install them into that Python yourself.
+            } @else {
+              This workbook runs in the Python that started it: install packages there.
+            }
+          } @else {
+            The remote backend owns installation; Pyodide installs compatible packages in the browser.
+          }
         </p>
         <textarea
           id="package-requirements"
@@ -2981,6 +2992,14 @@
           <button class="secondary-button" type="button" (click)="settingsOpen.set(false)">
             Close
           </button>
+          @if (embeddedSession() && sessionEnvironment()?.restart) {
+            <button class="secondary-button" type="button"
+              [disabled]="runtime.status() === 'loading' || runtime.status() === 'running'"
+              title="Python restarts with these packages; the workbook stays open, unsaved edits too"
+              (click)="restartWithPackages()">
+              {{ sessionEnvironment()?.sandboxed ? 'Restart with these packages' : 'Restart in a sandbox' }}
+            </button>
+          }
           <button
             class="primary-button"
             type="button"
@@ -3085,6 +3104,29 @@
     @if (saveFailure(); as failure) {
       <app-save-failure [failure]="failure" [busy]="saving()" (dismissed)="saveFailure.set(null)" (retried)="saveSheet(lastSaveOptions)" (cellRequested)="openSaveFailureCell($event)" (actionRequested)="openSaveFailureAction($event)" />
     }
+  }
+  @if (missingPackages().length && !appRun() && runtime.status() !== 'loading') {
+    <div class="recovery-toast" role="status">
+      <div>
+        <strong>Not installed in this Python: {{ missingPackages().join(', ') }}</strong>
+        <span>
+          @if (sessionEnvironment()?.restart) {
+            Restart {{ sessionEnvironment()?.sandboxed ? 'the sandbox' : 'in a sandbox' }} to install them (uv),
+            or install them into this Python yourself.
+          } @else {
+            Install them into the Python running this workbook, or start it with --sandbox.
+          }
+        </span>
+      </div>
+      <div class="recovery-actions">
+        <button class="secondary-button" type="button" (click)="dismissMissingPackages()">Dismiss</button>
+        @if (sessionEnvironment()?.restart) {
+          <button class="primary-button" type="button" [disabled]="runtime.status() === 'running'" (click)="restartWithPackages()">
+            {{ sessionEnvironment()?.sandboxed ? 'Restart with these packages' : 'Restart in a sandbox' }}
+          </button>
+        }
+      </div>
+    </div>
   }
   @if (!saveFailure() && (evaluationError || runtime.error())) {
     <div class="error-toast" role="alert">

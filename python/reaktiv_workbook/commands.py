@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import argparse
 from importlib.metadata import version
+import os
 from pathlib import Path
+import secrets
 import sys
+import tempfile
 from typing import Sequence
 
 from .cli import main as evaluate_workbook
@@ -44,6 +47,8 @@ def build_parser() -> argparse.ArgumentParser:
                                help='Also share the workbook on the MCP endpoint for coding agents; one endpoint and saved '
                                     'token for all workbooks, so agents are configured once')
             child.add_argument('--mcp-port', type=int, default=8766, help='Port of the MCP endpoint (default: 8766)')
+            # A restarted session: start from this workbook (the editor's state), save to `file`.
+            child.add_argument('--resume', type=Path, default=None, help=argparse.SUPPRESS)
     child = commands.add_parser('evaluate', help='Evaluate cells, inspect values, or watch timers', add_help=False)
     child.add_argument('arguments', nargs=argparse.REMAINDER)
     child = commands.add_parser('check', help='Evaluate a workbook and fail on cell errors')
@@ -68,6 +73,21 @@ def sandbox_arguments(args: argparse.Namespace) -> list[str]:
     if getattr(args, 'mcp', False):
         arguments += ['--mcp', '--mcp-port', str(args.mcp_port)]
     return arguments
+
+
+def restart_in_sandbox(args: argparse.Namespace, port: int, token: str, handoff: Path) -> int:
+    """An editor session that ran in this Python asked for its packages: continue it in a
+    sandbox, on the same address with the same token, from the workbook it handed over."""
+    from .sandbox import SandboxError, run_sandboxed
+    args.port, args.headless = port, True
+    print("Restarting in a sandbox with the workbook's packages…", file=sys.stderr, flush=True)
+    try:
+        return run_sandboxed(args.file, sandbox_arguments(args), resume=handoff, token=token)
+    except (OSError, ValueError, SandboxError, SyntaxError) as error:
+        print(f'Could not prepare sandbox: {error}', file=sys.stderr)
+        return 2
+    finally:
+        handoff.unlink(missing_ok=True)
 
 
 def create_new(args: argparse.Namespace) -> int:
@@ -138,13 +158,23 @@ def command_main(argv: Sequence[str] | None = None) -> int:
         return evaluate([str(args.file), '--check'])
     if args.command == 'export':
         return evaluate([str(args.file), '--export', str(args.directory)])
-    from .standalone import serve_workbook
+    from .sandbox import HANDOFF
+    from .standalone import RESTART_EXIT, Restart, serve_workbook
+    sandboxed = HANDOFF in os.environ
+    # Where the editor's workbook goes when it asks to restart Python with its packages.
+    handoff = (Path(os.environ[HANDOFF]) if sandboxed
+               else Path(tempfile.gettempdir()) / f'reaktiv-workbook-{secrets.token_hex(8)}.workbook.py')
     try:
-        return serve_workbook(args.file, mode=args.command, host=args.host,
-                              port=args.port, open_browser=not args.headless,
-                              mcp_port=args.mcp_port if getattr(args, 'mcp', False) else None)
+        result = serve_workbook(args.file, mode=args.command, host=args.host,
+                                port=args.port, open_browser=not args.headless,
+                                mcp_port=args.mcp_port if getattr(args, 'mcp', False) else None,
+                                resume=getattr(args, 'resume', None), handoff=handoff)
     except KeyboardInterrupt:
         return 0
     except (OSError, ValueError, RuntimeError, SyntaxError) as error:
         print(f'Could not {args.command} workbook: {error}', file=sys.stderr)
         return 2
+    if not isinstance(result, Restart):
+        return result
+    # The sandbox launcher starts the session again; this Python is not sandboxed yet: switch.
+    return RESTART_EXIT if sandboxed else restart_in_sandbox(args, result.port, result.token, handoff)

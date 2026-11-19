@@ -157,6 +157,10 @@ class SessionSaveRequest(RequestModel):
     assets: dict[str, str] = Field(default_factory=dict[str, str])
 
 
+class SessionRestartRequest(RequestModel):
+    document: WorkbookObject
+
+
 class Health(BaseModel):
     status: Literal["ok"]
     runtime: Literal["reaktiv-workbook"]
