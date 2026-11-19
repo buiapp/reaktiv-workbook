@@ -380,7 +380,27 @@ button:disabled {
     pointer-events: none;
   }
 
-  > select { padding-left: 32px; }
+  /* The icon sits over the select. Safari ignores padding on native (menulist) selects, so
+     the text ran under the icon: draw the select and its arrow ourselves. */
+  > select {
+    padding-left: 32px;
+    padding-right: 28px;
+    appearance: none;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    transform: translateY(-50%);
+    background: currentColor;
+    opacity: 0.6;
+    pointer-events: none;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 3.5 5 7l3.5-3.5' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  }
 }
 
 .formula-bar input {

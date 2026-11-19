@@ -2514,14 +2514,15 @@
       <button type="button" role="menuitem" (click)="askDuplicateSheet(menu.prefix)">
         Duplicate sheet…
       </button>
-      @if (menu.prefix !== '') {
+      @if (sheetTabs().length > 1) {
         <button type="button" role="menuitem" class="danger" (click)="askDeleteSheet(menu.prefix)">
           Delete sheet…
         </button>
       }
     </div>
   }
-  @if (sheetToDelete(); as prefix) {
+  @if (sheetToDelete() !== null) {
+    @let prefix = sheetToDelete()!;
     <div class="close-prompt-backdrop" (click)="sheetToDelete.set(null)">
       <div
         class="close-prompt"
@@ -2531,7 +2532,7 @@
         (click)="$event.stopPropagation()"
         (keydown.escape)="sheetToDelete.set(null)"
       >
-        <strong id="delete-sheet-title">Delete sheet “{{ prefix }}”?</strong>
+        <strong id="delete-sheet-title">Delete sheet “{{ sheetDisplayName(prefix) }}”?</strong>
         <span>
           @if (sheetCellCount(prefix) > 0) {
             Its {{ sheetCellCount(prefix) }} cell(s) are deleted too. You can undo this.
@@ -3098,6 +3099,7 @@
     <div class="error-toast save-toast" role="status">
       <app-ui-icon name="check" />
       <span>{{ message }}</span>
+      <button type="button" aria-label="Dismiss" (click)="dismissSaveFeedback()">×</button>
     </div>
   }
 </div>

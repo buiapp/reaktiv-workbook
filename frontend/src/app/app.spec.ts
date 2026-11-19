@@ -3759,6 +3759,10 @@ describe('App', () => {
       expect(compiled.querySelector('.unsaved-badge')).toBeNull();
       expect(compiled.querySelector('.document-save-state')?.textContent?.trim()).toBe('Saved');
     });
+    // The confirmation can be dismissed before it disappears by itself.
+    (compiled.querySelector('.save-toast button[aria-label="Dismiss"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(compiled.querySelector('.save-toast')).toBeNull();
 
     const editor = fixture.debugElement.query(By.directive(MarkdownCellEditorComponent))
       .componentInstance as MarkdownCellEditorComponent;
@@ -4529,6 +4533,67 @@ describe('App', () => {
       fixture.detectChanges();
       expect(fixture.nativeElement.querySelector('.sheet-grid')).toBe(grid);
     }
+  });
+
+  it('keeps each worksheet grid size when the sheets are reordered', async () => {
+    const fixture = createWithFinancialModel(); fixture.detectChanges(); await fixture.whenStable();
+    const app = fixture.componentInstance as unknown as {
+      openDocument(document: ReturnType<typeof createSheetDocument>, path: null, start: boolean): void;
+      reorderSheets(names: string[]): void; switchSheet(prefix: string): void;
+      columns(): readonly string[]; rows(): readonly number[];
+    };
+    const document = createSheetDocument('Sizes', 2, 3, FINANCIAL_CELLS);
+    document.sheetName = 'Main';
+    document.sheets = [{name: 'Budget', grid: {columns: 4, rows: 5}, layout: {columnWidths: {}, rowHeights: {}}}];
+    app.openDocument(document, null, false); await fixture.whenStable();
+    const size = () => [app.columns().length, app.rows().length];
+    expect(size()).toEqual([2, 3]);
+    // Main is active while Budget moves to the front (and becomes the plain-id sheet).
+    app.reorderSheets(['Budget', 'Main']);
+    expect(size()).toEqual([2, 3]);
+    app.switchSheet('');
+    expect(size()).toEqual([4, 5]);
+    app.switchSheet('Main');
+    expect(size()).toEqual([2, 3]);
+    // And back, now with the first sheet active.
+    app.switchSheet('');
+    app.reorderSheets(['Main', 'Budget']);
+    expect(size()).toEqual([4, 5]);
+    app.switchSheet('');
+    expect(size()).toEqual([2, 3]);
+  });
+
+  it('deletes the first sheet: the next one takes its place, with its own size, in one undo step', async () => {
+    const fixture = createWithFinancialModel(); fixture.detectChanges(); await fixture.whenStable();
+    const app = fixture.componentInstance as unknown as {
+      openDocument(document: ReturnType<typeof createSheetDocument>, path: null, start: boolean): void;
+      sheetMenu: ReturnType<typeof signal<{ x: number; y: number; prefix: string } | null>>;
+      sheetName(): string; extraSheets(): readonly string[]; switchSheet(prefix: string): void;
+      cells(): CellDefinition[]; columns(): readonly string[]; rows(): readonly number[]; undo(): void;
+    };
+    const document = createSheetDocument('Sheets', 2, 3, FINANCIAL_CELLS);
+    document.sheetName = 'Main';
+    document.cells = [...document.cells, { id: 'Budget!B2', kind: 'input', source: '5', name: 'rent', enabled: true, trigger: 'auto' }];
+    document.sheets = [{name: 'Budget', grid: {columns: 4, rows: 5}, layout: {columnWidths: {}, rowHeights: {}}}];
+    app.openDocument(document, null, false); await fixture.whenStable();
+    const host = fixture.nativeElement as HTMLElement;
+
+    app.sheetMenu.set({ x: 0, y: 0, prefix: '' }); fixture.detectChanges();
+    const remove = [...host.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')].find(b => b.textContent?.includes('Delete sheet'));
+    expect(remove).toBeDefined();
+    remove!.click(); fixture.detectChanges();
+    expect(host.querySelector('#delete-sheet-title')?.textContent).toContain('Main');
+    (host.querySelector('.close-prompt .danger-button') as HTMLButtonElement).click(); fixture.detectChanges();
+
+    expect([app.sheetName(), ...app.extraSheets()]).toEqual(['Budget']);
+    expect(app.cells().map(cell => cell.id)).toEqual(['B2']); // Main's cells are gone, Budget's are plain
+    app.switchSheet('');
+    expect([app.columns().length, app.rows().length]).toEqual([4, 5]);
+
+    app.undo(); fixture.detectChanges();
+    expect([app.sheetName(), ...app.extraSheets()]).toEqual(['Main', 'Budget']);
+    expect(app.cells().some(cell => cell.id === 'Budget!B2')).toBe(true);
+    expect(app.cells().filter(cell => !cell.id.includes('!')).length).toBe(FINANCIAL_CELLS.length);
   });
 
   it('keeps split worksheets attached through renaming, reordering, deleting, and swapping', async () => {

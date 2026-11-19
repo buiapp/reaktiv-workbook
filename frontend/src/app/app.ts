@@ -2896,7 +2896,7 @@ export class App implements OnInit, OnDestroy {
 
   protected askDeleteSheet(prefix: string): void {
     this.sheetMenu.set(null);
-    if (!this.requireKernel() || prefix === '') return;
+    if (!this.requireKernel() || this.sheetTabs().length < 2) return;
     this.sheetToDelete.set(prefix);
     setTimeout(() => document.querySelector<HTMLElement>('.close-prompt .danger-button')?.focus());
   }
@@ -2909,7 +2909,15 @@ export class App implements OnInit, OnDestroy {
 
   protected deleteSheet(prefix: string, evaluate = true, record = true): void {
     if (!this.requireKernel()) return;
-    if (prefix === '') return;
+    if (prefix === '') {
+      // The first sheet has the plain cell ids (A1): the next sheet takes its place first, then
+      // the old first sheet (now qualified, Old!A1) is deleted like any other. One undo step.
+      const [first, next, ...rest] = this.sheetNames();
+      if (next === undefined) return; // a workbook keeps at least one sheet
+      this.reorderSheets([next, first, ...rest], false, record);
+      prefix = first;
+      record = false;
+    }
     if (record) this.recordHistory();
     if (this.activeSheet() === prefix) this.switchSheet('');
     this.splitSheets.update(sheets => sheets.map(sheet => sheet === prefix ? '' : sheet));
@@ -3043,13 +3051,13 @@ export class App implements OnInit, OnDestroy {
   }
 
   /** Put the sheets in `order` (all sheet names). */
-  protected reorderSheets(order: string[]): void {
+  protected reorderSheets(order: string[], evaluate = true, record = true): void {
     if (!this.requireKernel()) return;
     const oldFirst = this.sheetName();
     const newFirst = order[0];
     if (order.join('\n') === this.sheetNames().join('\n')) return;
     this.commitNoteDraftIfNeeded(false);
-    this.recordHistory();
+    if (record) this.recordHistory();
     const layouts = Object.fromEntries(
       this.sheetTabs().map((tab) => [tab.name, this.layoutOf(tab.prefix)]),
     );
@@ -3086,7 +3094,8 @@ export class App implements OnInit, OnDestroy {
     }
     this.sheetName.set(newFirst);
     this.extraSheets.set(order.slice(1));
-    this.storedLayouts.set(Object.fromEntries(order.slice(1).map((name) => [name, layouts[name]])));
+    // Every sheet keeps its own layout; the first one is stored under its plain prefix ''.
+    this.storedLayouts.set(Object.fromEntries(order.map((name, index) => [index === 0 ? '' : name, layouts[name]])));
     const activePrefix = activeName === newFirst ? '' : activeName;
     this.applyLayout(layouts[activeName] ?? DEFAULT_SHEET_LAYOUT);
     this.activeSheet.set(activePrefix);
@@ -3094,7 +3103,7 @@ export class App implements OnInit, OnDestroy {
       const name = sheet === '' ? oldFirst : sheet;
       return name === newFirst ? '' : name;
     }));
-    void this.evaluateGraph();
+    if (evaluate) void this.evaluateGraph();
   }
 
   protected sheetCellCount(prefix: string): number {
@@ -6140,6 +6149,12 @@ export class App implements OnInit, OnDestroy {
   private resetNoteHistoryGroup(): void {
     this.lastNoteHistoryAt = 0;
     this.lastNoteHistoryId = '';
+  }
+
+  protected dismissSaveFeedback(): void {
+    if (this.saveFeedbackTimer !== null) window.clearTimeout(this.saveFeedbackTimer);
+    this.saveFeedbackTimer = null;
+    this.saveFeedback.set(null);
   }
 
   private showSaveFeedback(message: string): void {
