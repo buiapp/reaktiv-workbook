@@ -39,7 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
         else:
             child.add_argument('file', type=Path)
         child.add_argument('--port', type=int, default=0, help='Local HTTP port (default: choose a free port)')
-        child.add_argument('--host', choices=['127.0.0.1', 'localhost', '::1'], default='127.0.0.1', help='Loopback listen address')
+        child.add_argument('--host', default='127.0.0.1',
+                           help='Listen address (default: 127.0.0.1). Other addresses, such as 0.0.0.0, need --allow-remote')
+        child.add_argument('--allow-remote', action='store_true',
+                           help='Allow a network --host: anyone with the printed link can edit the workbook and run Python '
+                                'as you. Use only on a trusted network, ideally behind HTTPS')
         child.add_argument('--headless', '--no-browser', action='store_true', help='Print the URL without opening a browser')
         child.add_argument('--sandbox', action='store_true', help=SANDBOX_HELP)
         if command in ('new', 'edit'):
@@ -68,6 +72,8 @@ def sandbox_arguments(args: argparse.Namespace) -> list[str]:
     if args.command == 'export':
         return ['export', str(args.file), str(args.directory)]
     arguments = [args.command, str(args.file), '--port', str(args.port), '--host', args.host]
+    if args.allow_remote:
+        arguments.append('--allow-remote')
     if args.headless:
         arguments.append('--headless')
     if getattr(args, 'mcp', False):
@@ -135,6 +141,12 @@ def command_main(argv: Sequence[str] | None = None) -> int:
         parser.error('--port must be between 0 and 65535')
     if args.command in ('new', 'edit') and not 0 <= args.mcp_port <= 65535:
         parser.error('--mcp-port must be between 0 and 65535')
+    if args.command in ('new', 'edit', 'run'):
+        from .session import LOOPBACK_HOSTS
+        if args.host not in LOOPBACK_HOSTS and not args.allow_remote:
+            parser.error(f'--host {args.host} lets other computers run Python as you; add --allow-remote to confirm')
+        if args.host not in LOOPBACK_HOSTS and getattr(args, 'mcp', False):
+            parser.error('--mcp works with a local --host only')
     if args.command == 'new':
         status = create_new(args)
         if status:
@@ -165,7 +177,7 @@ def command_main(argv: Sequence[str] | None = None) -> int:
     handoff = (Path(os.environ[HANDOFF]) if sandboxed
                else Path(tempfile.gettempdir()) / f'reaktiv-workbook-{secrets.token_hex(8)}.workbook.py')
     try:
-        result = serve_workbook(args.file, mode=args.command, host=args.host,
+        result = serve_workbook(args.file, mode=args.command, host=args.host, allow_remote=args.allow_remote,
                                 port=args.port, open_browser=not args.headless,
                                 mcp_port=args.mcp_port if getattr(args, 'mcp', False) else None,
                                 resume=getattr(args, 'resume', None), handoff=handoff)

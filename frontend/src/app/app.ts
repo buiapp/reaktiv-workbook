@@ -1,3 +1,4 @@
+import { randomId } from './random-id';
 import { WorkbookMigrationNoticeComponent } from './workbook-migration-notice.component';
 import { migratedFilename, migrationDownloadName, type WorkbookMigration } from './files/workbook-migration';
 import { GraphLevelsComponent } from './graph/graph-levels.component';
@@ -6454,7 +6455,7 @@ export class App implements OnInit, OnDestroy {
     // An opened workbook is read first; Edit (or a new note) switches to editing.
     this.notesEditing.set(false);
     this.cancelRecoveryOutputs();
-    this.recoveryOutputRevision = crypto.randomUUID();
+    this.recoveryOutputRevision = randomId();
     this.recoveryOutputsDirty = true;
     this.untouchedCheckpoint = null; // the window now holds a workbook the user chose
     this.workbookNameDraft.set(null);
@@ -6628,7 +6629,7 @@ export class App implements OnInit, OnDestroy {
 
   private recoveryOutputsDirty = true;
   private recoveryOutputTimer: ReturnType<typeof setTimeout> | null = null;
-  private recoveryOutputRevision: string = crypto.randomUUID();
+  private recoveryOutputRevision: string = randomId();
   private readonly recoveryOutputWatcher = effect(() => {
     this.graph(); this.snapshotSavedAt();
     this.recoveryOutputsDirty = true;

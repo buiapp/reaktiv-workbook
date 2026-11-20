@@ -1,3 +1,4 @@
+import { randomId } from '../random-id';
 import { canonicalActionSource } from '../sheet-file';
 import { signal } from '@angular/core';
 import type { ActionDefinition, ActionBinding, ActionInvocation, GraphResult, SheetDocument } from '../sheet.types';
@@ -133,7 +134,7 @@ export class ActionWorkspace {
       return;
     const generation = this.ports.commands.generation;
     this.actionRunnerOpen.set(false);
-    const runId = crypto.randomUUID();
+    const runId = randomId();
     this.invocations.update(items => [...items, {id: runId, name: event.name}]);
     this.runningAction.set(event.name);
     this.lastInvokedAction.set(event.name);

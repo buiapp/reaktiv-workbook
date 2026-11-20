@@ -1,3 +1,4 @@
+import { randomId } from '../random-id';
 import { workbookCellMemberNames } from '../sheet-file';
 import type { AgentTrackChange } from './agent-track-layout';
 import { assertChangedCellPlacements } from '../cell-placement';
@@ -70,7 +71,7 @@ export class LiveAgentWorkbook {
   private readonly changes = new DocumentChanges();
   private checkpoint: SheetDocument | null = null;
   private graph: GraphResult | null = null;
-  private revision = crypto.randomUUID();
+  private revision = randomId();
 
   constructor(private readonly ports: LiveAgentPorts) {}
 
@@ -78,7 +79,7 @@ export class LiveAgentWorkbook {
     const document = this.ports.document();
     const graph = this.ports.graph();
     if (!this.changes.same(document, this.checkpoint) || graph !== this.graph) {
-      this.revision = crypto.randomUUID();
+      this.revision = randomId();
       this.checkpoint = document;
       this.graph = graph;
     }

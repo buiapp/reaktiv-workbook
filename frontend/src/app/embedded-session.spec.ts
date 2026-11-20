@@ -8,6 +8,16 @@ describe('embedded session links', () => {
     expect(() => linkedSession('?session=http://127.0.0.1:8765', '')).toThrow(/token/);
     expect(() => linkedSession('?session=http://abc:secret@127.0.0.1:8765', '#token=abc')).toThrow(/local/);
   });
+
+  it('attaches to the server that served the page, under any address (--allow-remote, proxies)', () => {
+    const origin = 'https://workbook.example.ts.net';
+    expect(linkedSession('?session=%2F', '#token=abc', origin)).toEqual({ endpoint: origin, token: 'abc' });
+    expect(linkedSession('?session=http%3A%2F%2F192.168.1.5%3A8800', '#token=abc', 'http://192.168.1.5:8800'))
+      .toEqual({ endpoint: 'http://192.168.1.5:8800', token: 'abc' });
+    // Never another network server, so a link cannot attach the hosted app to a stranger's kernel.
+    expect(() => linkedSession('?session=http%3A%2F%2F192.168.1.5%3A8800', '#token=abc', origin)).toThrow(/local/);
+    expect(() => linkedSession('?session=%2F%2Fevil.example', '#token=abc', origin)).toThrow(/local/);
+  });
 });
 
 describe('agent bridge links (edit --mcp)', () => {

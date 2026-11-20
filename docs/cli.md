@@ -25,6 +25,7 @@ the browser does not stop it.
 | `--mcp` | Let coding agents work in the open workbook ([Agents](agents.md)) |
 | `--port 8765` | Use a fixed port |
 | `--headless` | Print the link instead of opening the browser |
+| `--host 0.0.0.0 --allow-remote` | Let other computers open the workbook ([Share on a network](#share-on-a-network)) |
 
 Without `--sandbox`, cells run in the Python that started the command, so install the
 packages your workbook uses there (`pip install plotly pandas`). If some are missing,
@@ -36,6 +37,27 @@ own Python); the editor also offers it when declared packages are missing. Pytho
 restarts in a sandbox with the new list, on the same address: the browser reconnects and
 the workbook stays open, unsaved edits included. Values computed at runtime are
 recomputed. Your own Python environment is never changed.
+
+## Share on a network
+
+By default only your own computer can open the editor. To let others in:
+
+```bash
+reaktiv-workbook edit analysis.workbook.py --host 0.0.0.0 --allow-remote --port 8800
+```
+
+The command prints a link with your computer's network address; send it to the people
+who should join. Everyone works in the same running workbook: when one person moves a
+slider, everyone sees it. With `run` instead of `edit`, people can only use the
+workbook: change inputs, use widgets and run its exposed actions.
+
+**Anyone with the link can edit the workbook and run Python as you.** Share it only on a
+network you trust. The link travels as plain HTTP, so on other networks put HTTPS in
+front and share that address instead, for example with
+[Tailscale](https://tailscale.com/kb/1312/serve) (`tailscale serve 8800`) or a reverse
+proxy such as Caddy. Then the workbook can stay on `--host 127.0.0.1`: copy the printed
+link and change only its address. Some browser features, such as copy buttons and pasting
+images, need HTTPS. `--mcp` works only without `--host`.
 
 ## Check and evaluate
 
@@ -86,7 +108,8 @@ editor.
 
 ## Safety
 
-The editor listens only on your own computer and uses a secret link. Workbook code is
+The editor listens only on your own computer (unless you
+[share it on a network](#share-on-a-network)) and uses a secret link. Workbook code is
 ordinary Python with your permissions, and automatic effects run on startup: **open
 only workbooks you trust**. `run` mode hides editing but is not a sandbox; the
 workbook's code is still sent to the browser.

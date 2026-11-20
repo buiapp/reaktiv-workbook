@@ -1,3 +1,4 @@
+import { randomId } from './random-id';
 import { updateTracingEnabled } from './feature-flags';
 import { WorkerRequestChannel, type WorkerPayload } from './runtime/worker-request-channel';
 import { HttpKernelTransport, RequestTooLargeError, KernelRequestError } from './runtime/http-kernel-transport';
@@ -338,7 +339,7 @@ export class RuntimeService {
     }
   }
 
-  async runAction(name: string, arguments_: Record<string,ActionBinding>, runId: string = crypto.randomUUID()): Promise<GraphResult> {
+  async runAction(name: string, arguments_: Record<string,ActionBinding>, runId: string = randomId()): Promise<GraphResult> {
     const generation = this.usageGeneration;
     this.actionRuns.add(runId);
     this.status.set('running'); this.statusMessage.set('Running action');

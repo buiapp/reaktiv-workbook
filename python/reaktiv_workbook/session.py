@@ -235,6 +235,25 @@ class _SessionRuntime(RuntimeServer):
             self._running_thread = None
 
 
+LOOPBACK_HOSTS = ('127.0.0.1', 'localhost', '::1')
+
+
+def reachable_address(host: str) -> str:
+    """The address for a link to a server listening on ``host``: a wildcard listens on every
+    interface, so the link names this machine's network address instead."""
+    import socket
+    if host in ('0.0.0.0', '::', ''):
+        family = socket.AF_INET6 if host == '::' else socket.AF_INET
+        try:
+            with socket.socket(family, socket.SOCK_DGRAM) as probe:
+                # Connecting a UDP socket sends nothing; it only picks the outgoing interface.
+                probe.connect(('2001:db8::1', 9) if family == socket.AF_INET6 else ('192.0.2.1', 9))
+                host = str(probe.getsockname()[0])
+        except OSError:
+            host = socket.gethostname()
+    return f'[{host}]' if ':' in host else host
+
+
 class WorkbookSession:
     """Load a workbook for production code; attach an editor without a second graph.
 
@@ -547,15 +566,20 @@ class WorkbookSession:
         self.submit(save())
 
     def open_editor(self, app_url: str | None = None, *, host: str = '127.0.0.1',
-                     port: int = 0, open_browser: bool = True) -> str:
+                     port: int = 0, open_browser: bool = True, allow_remote: bool = False) -> str:
+        """Serve the editor and return its link. ``allow_remote`` lets ``host`` be any
+        address (``0.0.0.0`` for every interface): whoever has the link can run Python."""
         from .api import KernelSettings, create_app
         from .api.serving import BackgroundServer
         from urllib.parse import urlencode, urlsplit, urlunsplit
         import webbrowser
         if self._closed:
             raise RuntimeError('Session is closed')
-        if host not in ('127.0.0.1', 'localhost', '::1'):
-            raise ValueError('Standalone workbooks currently listen on loopback addresses only')
+        remote = host not in LOOPBACK_HOSTS
+        if remote and not allow_remote:
+            raise ValueError('Listening on a network address needs allow_remote=True')
+        if remote and app_url:
+            raise ValueError('A network session serves its own editor; omit app_url')
         base = urlsplit(app_url) if app_url else None
         if base and (base.scheme != 'http' or base.hostname not in ('localhost', '127.0.0.1', '::1') or base.username or base.password):
             raise ValueError('Use a local HTTP app URL to connect to this loopback session')
@@ -564,10 +588,13 @@ class WorkbookSession:
         if self._server is None:
             app = create_app(self._runtime, KernelSettings(token=self._token), owns_runtime=False, static_root=root)
             self._server = BackgroundServer(app, host=host, port=port)
-        address = '[::1]' if host == '::1' else host
+        address = reachable_address(host)
         endpoint = f'http://{address}:{self._server.port}'
+        # Served by the session itself, the editor attaches to the page's own origin (`/`),
+        # so the link keeps working through a tunnel or proxy under another address.
+        session = endpoint if base else '/'
         base = base or urlsplit(endpoint + '/')
-        url = urlunsplit((base.scheme, base.netloc, base.path, urlencode({'session': endpoint}), urlencode({'token': self._token})))
+        url = urlunsplit((base.scheme, base.netloc, base.path, urlencode({'session': session}), urlencode({'token': self._token})))
         if open_browser:
             webbrowser.open(url)
         return url

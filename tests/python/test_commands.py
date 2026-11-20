@@ -46,7 +46,8 @@ def test_commands_dispatch_only_explicit_launch_commands(workbook, monkeypatch, 
     assert command_main(['edit', str(workbook), '--headless', '--port', '8765']) == 0
     handoff = calls[0][1].pop('handoff')  # where the editor's workbook goes on a restart
     assert handoff.name.endswith('.workbook.py') and not handoff.exists()
-    assert calls == [(workbook, {'mode': 'edit', 'host': '127.0.0.1', 'port': 8765, 'open_browser': False, 'mcp_port': None, 'resume': None})]
+    assert calls == [(workbook, {'mode': 'edit', 'host': '127.0.0.1', 'allow_remote': False, 'port': 8765,
+                                 'open_browser': False, 'mcp_port': None, 'resume': None})]
     assert command_main(['run', str(workbook), '--no-browser']) == 0
     assert len(calls) == 2
     assert command_main(['check', str(workbook)]) == 0
@@ -63,6 +64,26 @@ def test_commands_dispatch_only_explicit_launch_commands(workbook, monkeypatch, 
         command_main(['edit', str(workbook), '--port', '-1'])
     with pytest.raises(SystemExit):
         command_main(['edit', '--host', '0.0.0.0'])
+    assert 'add --allow-remote' in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        command_main(['edit', str(workbook), '--host', '0.0.0.0', '--allow-remote', '--mcp'])
+    assert command_main(['run', str(workbook), '--host', '0.0.0.0', '--allow-remote', '--headless']) == 0
+    assert calls[-1][1]['host'] == '0.0.0.0' and calls[-1][1]['allow_remote'] is True
+
+
+def test_remote_session_serves_a_link_that_attaches_to_its_own_origin(workbook):
+    with SheetSession(workbook) as session:
+        with pytest.raises(ValueError):
+            session.open_editor(host='0.0.0.0', open_browser=False)
+        parts = urlsplit(session.open_editor(host='0.0.0.0', open_browser=False, allow_remote=True))
+        assert parts.hostname not in ('0.0.0.0', '127.0.0.1', None)
+        assert parse_qs(parts.query)['session'] == ['/']
+        token = parse_qs(parts.fragment)['token'][0]
+        # Reachable on every interface, and still only with the token.
+        endpoint = f'http://127.0.0.1:{parts.port}'
+        assert post(endpoint, token, '/v1/session', {})['document']
+        with pytest.raises(HTTPError):
+            post(endpoint, 'wrong', '/v1/session', {})
 
 
 def test_generated_workbook_entrypoint_cannot_launch_ui(workbook, monkeypatch):

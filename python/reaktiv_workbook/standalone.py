@@ -51,6 +51,18 @@ def agent_instructions(bridge: AgentBridge) -> str:
     return '\n'.join(lines) + '\n'
 
 
+def remote_warning(host: str, mode: Literal['edit', 'run']) -> str:
+    """Said when the session listens beyond this computer."""
+    from .session import LOOPBACK_HOSTS
+    if host in LOOPBACK_HOSTS:
+        return ''
+    access = ('edit the workbook and run Python as you' if mode == 'edit' else
+              "change its inputs, run its exposed actions and see file names on this computer")
+    return (f'Listening on the network: anyone with this link can {access}.\n'
+            '  The link travels as plain HTTP; on an untrusted network, put HTTPS in front (a reverse proxy or\n'
+            '  `tailscale serve`) and share that address instead. Through a proxy, change only the address.\n')
+
+
 def with_query(url: str, *parameters: tuple[str, str]) -> str:
     parts = urlsplit(url)
     return urlunsplit(parts._replace(query=urlencode([*parse_qsl(parts.query), *parameters])))
@@ -139,7 +151,8 @@ class Restart:
 
 def serve_workbook(path: Path, *, mode: Literal['edit', 'run'], host: str = '127.0.0.1',
                    port: int = 0, open_browser: bool = True, mcp_port: int | None = None,
-                   resume: Path | None = None, handoff: Path | None = None) -> int | Restart:
+                   resume: Path | None = None, handoff: Path | None = None,
+                   allow_remote: bool = False) -> int | Restart:
     """Serve until Ctrl+C. ``resume`` starts from that workbook (a restart's unsaved state);
     with ``handoff`` the editor can restart Python: its workbook is written there."""
     # Check assets before creating a new file or running any workbook code.
@@ -162,7 +175,7 @@ def serve_workbook(path: Path, *, mode: Literal['edit', 'run'], host: str = '127
                 # A moment for the HTTP response to reach the editor before the server stops.
                 Timer(0.3, stopped.set).start()
             session.restart = restart
-        url = session.open_editor(host=host, port=port, open_browser=False)
+        url = session.open_editor(host=host, port=port, open_browser=False, allow_remote=allow_remote)
         if starter:
             # The editor offers the getting-started guide and examples for a blank workbook.
             url = with_query(url, ('new', '1'))
@@ -174,7 +187,8 @@ def serve_workbook(path: Path, *, mode: Literal['edit', 'run'], host: str = '127
                 bridge = AgentBridge(mcp_port, f'{parts.scheme}://{parts.netloc}')
                 url = with_agent_bridge(url, bridge.endpoint, bridge.token)
                 agents = agent_instructions(bridge)
-            print(f'Reaktiv Workbook · {mode} · {path}\n{url}\n{agents}Press Ctrl+C to stop.', flush=True)
+            print(f'Reaktiv Workbook · {mode} · {path}\n{url}\n{agents}{remote_warning(host, mode)}Press Ctrl+C to stop.',
+                  flush=True)
             if open_browser:
                 webbrowser.open(url)
             wait_for_shutdown(stopped)

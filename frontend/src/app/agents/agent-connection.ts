@@ -1,3 +1,4 @@
+import { randomId } from '../random-id';
 import { signal } from '@angular/core';
 import type { AgentCommand } from './live-agent-workbook';
 import type { AgentViewContext } from './agent-context';
@@ -20,7 +21,7 @@ export function storedAgentPairing(): AgentPairing | null {
 export function readAgentPairing(): AgentPairing {
   const stored = storedAgentPairing();
   if (stored) return stored;
-  const pairing = { endpoint: 'http://127.0.0.1:8766', token: crypto.randomUUID() + crypto.randomUUID() };
+  const pairing = { endpoint: 'http://127.0.0.1:8766', token: randomId() + randomId() };
   rememberAgentPairing(pairing);
   return pairing;
 }
@@ -64,7 +65,7 @@ export class AgentConnection {
     this.stop();
     pairing = { ...pairing, endpoint };
     rememberAgentPairing(pairing);
-    const binding = { id: crypto.randomUUID(), pairing, abort: new AbortController() };
+    const binding = { id: randomId(), pairing, abort: new AbortController() };
     this.binding = binding;
     window.addEventListener('pagehide', this.onPageHide);
     this.shared.set(true);
