@@ -1,5 +1,5 @@
 import type { ResolvedCellWidget } from './sheet.types';
-import { actionWidgetState, type WidgetActionRequest, type WidgetActionFeedback } from './widget-action';
+import { actionWidgetState, refusedInputState, type InputRefusal, type WidgetActionRequest, type WidgetActionFeedback } from './widget-action';
 import { isWidgetDebounce, widgetBlocked } from './widget-config';
 import { CommonModule } from '@angular/common';
 import {
@@ -661,6 +661,7 @@ export class MarkdownCellEditorComponent implements OnChanges, OnDestroy {
   @Input() cancellingActions: readonly string[] = [];
   @Input() actionBusy=false;
   @Input() actionFeedback:WidgetActionFeedback|null=null;
+  @Input() inputRefusal:InputRefusal|null=null;
   @Output() actionInvoked=new EventEmitter<WidgetActionRequest>();
   /** Notes this note can link to (`#note-…`), for the link dialog. */
   @Input() noteLinks: NoteLinkTarget[] = [];
@@ -781,7 +782,7 @@ export class MarkdownCellEditorComponent implements OnChanges, OnDestroy {
         this.resolveWidgetQuery(query),
         this.values.find((value) => value.reference === reference),
       );
-      return widget ? actionWidgetState(widget,widget.cellId,this.runningActions.length ? this.runningActions : this.runningAction,this.actionBusy,this.actionFeedback,this.cancellingActions) : null;
+      return widget ? refusedInputState(actionWidgetState(widget,widget.cellId,this.runningActions.length ? this.runningActions : this.runningAction,this.actionBusy,this.actionFeedback,this.cancellingActions),widget.cellId,this.inputRefusal) : null;
     },
     invokeAction: widget => {
       if(this.interactive && widget.action && !widgetBlocked(widget) && !widget.error) this.actionInvoked.emit({cellId:widget.cellId,name:widget.action,arguments:widget.actionArguments ?? {}});
@@ -831,7 +832,7 @@ export class MarkdownCellEditorComponent implements OnChanges, OnDestroy {
     },
   };
 
-  protected get widgetActivity():string {return JSON.stringify([this.runningAction,this.runningActions,this.cancellingActions,this.actionBusy,this.actionFeedback]);}
+  protected get widgetActivity():string {return JSON.stringify([this.runningAction,this.runningActions,this.cancellingActions,this.actionBusy,this.actionFeedback,this.inputRefusal]);}
 
   ngOnChanges(): void {
     // Content changes flow into the editor through its inputs.

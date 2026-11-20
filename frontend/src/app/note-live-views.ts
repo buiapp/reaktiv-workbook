@@ -22,6 +22,7 @@ export interface NoteWidgetModel {
   actionState?: 'running' | 'cancelling';
   actionArguments?: Record<string, import('./sheet.types').ActionBinding>;
   actionError?: string;
+  rejected?: { value: string; message: string };
   error?: string;
   value: WidgetValue;
   display: string;

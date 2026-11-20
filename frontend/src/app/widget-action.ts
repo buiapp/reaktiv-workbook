@@ -10,6 +10,19 @@ export interface WidgetActionFeedback {
   error: string;
 }
 
+/** A value Python refused for an input (a shared session's path limits): kept for correction. */
+export interface InputRefusal {
+  cellId: string;
+  value: string;
+  message: string;
+}
+
+/** The refused text and reason for this input's control, if any. */
+export function refusedInputState<T extends object>(widget: T, cellId: string, refusal: InputRefusal | null):
+    T & { rejected?: { value: string; message: string } } {
+  return refusal?.cellId === cellId ? { ...widget, rejected: { value: refusal.value, message: refusal.message } } : widget;
+}
+
 /** Invocation feedback belongs to the view; it never writes a workbook input. */
 export function actionWidgetState<
   T extends { type: string; action?: string; cancelWhileRunning?: boolean; disabled?: boolean; loading?: boolean },

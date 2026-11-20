@@ -25,6 +25,7 @@ import { GraphWorkspace } from './graph/graph-workspace';
 import { ActionWorkspace } from './actions/action-workspace';
 import { pythonErrorMessage } from './runtime/error-message';
 import { KernelRequestError } from './runtime/http-kernel-transport';
+import { setPathsInWorkbookFolder } from './widget-host';
 import { WorkbookState } from './workbook/workbook-state';
 import { shareCellResults } from './workbook/result-sharing';
 import { affectedCellIds, cloneCells, isNotePage, sameCell, sameComputation, sortCells } from './workbook/cell-model';
@@ -46,7 +47,7 @@ import { GettingStartedComponent } from './getting-started.component';
 import { CellConnectionControlsComponent, CellConnectionsComponent } from './cell-connections.component';
 import type { ConnectionSettings } from './cell-connections';
 import { ActionArgumentsComponent } from './action-arguments.component';
-import { remapWidgetActionBindings, actionWidgetState, type WidgetActionRequest } from './widget-action';
+import { remapWidgetActionBindings, actionWidgetState, refusedInputState, type InputRefusal, type WidgetActionRequest } from './widget-action';
 import { PanelResizeDirective } from './panel-resize.directive';
 import { SaveFailureComponent, type SaveFailure } from './save-failure.component';
 import { ActionPanelComponent } from './action-panel.component';
@@ -3337,21 +3338,21 @@ export class App implements OnInit, OnDestroy {
     return `${columns} × ${rows}`;
   }
 
-  protected tileWidget(cellId: string): ResolvedCellWidget {
+  protected tileWidget(cellId: string): ResolvedCellWidget & { rejected?: { value: string; message: string } } {
     const widget =
       this.resultAt(cellId)?.widget ??
       widgetFor(
         this.resultAt(cellId)?.value,
         this.definitionAt(cellId)?.view?.widget,
       );
-    return actionWidgetState(
+    return refusedInputState(actionWidgetState(
       widget,
       cellId,
       this.runningActionNames(),
       this.runtime.status() === 'running' && !this.runningAction(),
       this.widgetActionFeedback(),
       this.cancellingActionNames(),
-    );
+    ), cellId, this.inputRefusal());
   }
 
   protected widgetLabel(cellId: string, widget: ResolvedCellWidget): string {
@@ -4379,9 +4380,12 @@ export class App implements OnInit, OnDestroy {
   }
 
   private readonly widgetWriteVersions = new Map<string, number>();
+  /** The input value Python last refused, shown in that input's control until corrected. */
+  protected readonly inputRefusal = signal<InputRefusal | null>(null);
   private widgetApplyBarrier = 0;
 
-  private async writeWidgetDuringAction(sources: Map<string, string>, previous: Map<string, string | undefined>): Promise<void> {
+  private async writeWidgetDuringAction(sources: Map<string, string>, previous: Map<string, string | undefined>,
+                                        typed: Map<string, string>): Promise<void> {
     const generation = this.workbookCommands.generation, evaluation = this.widgetApplyBarrier;
     const versions = new Map([...sources.keys()].map(id => [id, this.widgetWriteVersions.get(id)]));
     let accepted = false;
@@ -4400,7 +4404,12 @@ export class App implements OnInit, OnDestroy {
           return cell.kind === 'linked' ? {...cell, override: value} : {...cell, source: value ?? cell.source};
         }));
         if (previous.has(this.selectedId())) this.syncEditor();
-        this.evaluationError = pythonErrorMessage(error);
+        // Shown at the input itself, with the refused text kept for correction.
+        const [cellId, source] = [...typed][0] ?? [];
+        let value: unknown = null;
+        try { value = source === undefined ? null : JSON.parse(source); } catch { /* not a string literal */ }
+        if (cellId !== undefined && typeof value === 'string') this.inputRefusal.set({ cellId, value, message: pythonErrorMessage(error) });
+        else this.evaluationError = pythonErrorMessage(error);
         return;
       }
       this.logSystem('warning', `Live widget update could not be queued; applying after the action. ${pythonErrorMessage(error)}`);
@@ -4427,13 +4436,16 @@ export class App implements OnInit, OnDestroy {
     if (!this.requireKernel()) return;
     const sources = new Map<string, string>();
     const previous = new Map<string, string | undefined>();
+    const typed = new Map<string, string>();
+    // Any new value for a refused input (or Escape, which sends the current one) replaces the refusal.
+    if (changes.some(change => change.cellId === this.inputRefusal()?.cellId)) this.inputRefusal.set(null);
     for (const change of changes) {
       const definition = this.definitionAt(change.cellId);
       if (!definition || !['input', 'linked'].includes(definition.kind) || change.source === '') continue;
       // The comment above the value ("# rent per month") stays with the cell.
       const source = definition.kind === 'linked' ? change.source : withInputComments(definition.source, change.source);
       const current = definition.kind === 'linked' ? definition.override : definition.source;
-      if (current !== source) { sources.set(change.cellId, source); previous.set(change.cellId, current); }
+      if (current !== source) { sources.set(change.cellId, source); previous.set(change.cellId, current); typed.set(change.cellId, change.source); }
     }
     if (sources.size === 0) return;
     // One undo step per drag, not one per intermediate value.
@@ -4451,7 +4463,7 @@ export class App implements OnInit, OnDestroy {
     );
     for (const id of sources.keys()) this.widgetWriteVersions.set(id, (this.widgetWriteVersions.get(id) ?? 0) + 1);
     if (sources.has(this.selectedId())) this.syncEditor();
-    void this.writeWidgetDuringAction(sources, previous);
+    void this.writeWidgetDuringAction(sources, previous, typed);
   }
 
   protected overrideLinkedInput(id: string, source: string): void {
@@ -7082,6 +7094,7 @@ export class App implements OnInit, OnDestroy {
 
   private acceptSessionState(state: EmbeddedSessionState, stashDraft = true): void {
     this.sessionEnvironment.set(state.environment ?? null);
+    setPathsInWorkbookFolder(state.pathsInWorkbookFolder === true);
     if (stashDraft && this.editorCellId !== null) this.stashEditorDraft(this.editorCellId);
     const note = this.activeNoteId();
     const oldNote = this.definitionAt(note);

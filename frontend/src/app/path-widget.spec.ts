@@ -60,4 +60,28 @@ describe('path widget', () => {
     root.querySelector('button')!.click(); root.querySelector('input')!.dispatchEvent(new Event('change'));
     expect(pickPath).not.toHaveBeenCalled(); expect(change).not.toHaveBeenCalled();
   });
+
+  it('keeps a refused path in the field, marked with the reason, until Escape restores the value', () => {
+    const root=mount(), change=vi.fn();
+    renderPathWidget(root,{...model,rejected:{value:'/etc/passwd',message:"Only paths inside the workbook's folder"}},change,{});
+    const field=root.querySelector('input')!, alert=root.querySelector('[role=alert]')!;
+    expect(field.value).toBe('/etc/passwd');
+    expect(field.getAttribute('aria-invalid')).toBe('true');
+    expect(field.getAttribute('aria-describedby')).toBe(alert.id);
+    expect(alert.textContent).toContain("workbook's folder");
+    field.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+    expect(field.value).toBe('/old.csv');
+    expect(field.hasAttribute('aria-invalid')).toBe(false);
+    expect((alert as HTMLElement).hidden).toBe(true);
+    expect(change).toHaveBeenCalledWith('/old.csv');
+    change.mockClear();
+    field.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+    expect(change).not.toHaveBeenCalled();  // nothing to give up: Escape keeps its usual meaning
+  });
+
+  it("says up front when a shared session limits paths to the workbook's folder", () => {
+    const root=mount();
+    renderPathWidget(root,model,vi.fn(),{pickPath:vi.fn(),pathsInWorkbookFolder:true});
+    expect(root.querySelector('.rw-path-hint')!.textContent).toBe("Paths must be inside the workbook's folder.");
+  });
 });

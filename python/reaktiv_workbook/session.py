@@ -554,6 +554,8 @@ class WorkbookSession:
             'mode': self.mode,
             'path': str(self.path),
             'environment': self.environment(),
+            # Shared (--allow-remote): path inputs only take paths inside the workbook's folder.
+            'pathsInWorkbookFolder': self.shared_root is not None,
             **({'assets': read_assets(self.path, self.document)} if include_assets else {}),
             "revision": self.revision,
             "document": {**replace(self._runtime.workbook.document, snapshot=None).to_dict(), "sourceFormatVersion": self._source_format_version, "sourceFileName": self.path.name},

@@ -153,6 +153,8 @@ export interface RichWidgetModel {
   cancelWhileRunning?: boolean;
   actionState?: 'running' | 'cancelling';
   actionError?: string;
+  /** Text Python refused, shown with the reason in the field until corrected or Escape. */
+  rejected?: { value: string; message: string };
 }
 
 /**

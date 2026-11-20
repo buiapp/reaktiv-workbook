@@ -1,6 +1,8 @@
 import type { RichWidgetModel, WidgetValue } from './input-widgets';
 import { widgetHost, type WidgetHost } from './widget-host';
 
+let nextId = 0;
+
 /** A path string editor with an optional native picker; shared by notes and grid tiles. */
 export function renderPathWidget(
   root: HTMLElement,
@@ -11,7 +13,9 @@ export function renderPathWidget(
   const kind = model.type === 'folder' ? 'folder' : 'file';
   const row = document.createElement('div'); row.className = 'rw-path-row';
   const field = document.createElement('input');
-  field.type = 'text'; field.value = String(model.value ?? '');
+  const current = String(model.value ?? '');
+  // A refused value stays in the field, marked, so it can be corrected rather than retyped.
+  field.type = 'text'; field.value = model.rejected?.value ?? current;
   field.placeholder = model.placeholder || `Enter a ${kind} path`;
   field.setAttribute('aria-label', model.label || `${kind} path`);
   field.disabled = model.disabled;
@@ -20,16 +24,34 @@ export function renderPathWidget(
   button.setAttribute('aria-label', `Choose ${kind}${model.label ? ': ' + model.label : ''}`);
   button.disabled = model.disabled || !host.pickPath;
   const hint = document.createElement('small'); hint.className = 'rw-path-hint';
-  hint.textContent = host.pickPath
-    ? 'The path must be accessible to your Python kernel.'
-    : 'Enter a path accessible to your Python kernel. Browse… needs a workbook opened with reaktiv-workbook edit.';
+  hint.textContent = host.pathsInWorkbookFolder
+    ? "Paths must be inside the workbook's folder."
+    : host.pickPath
+      ? 'The path must be accessible to your Python kernel.'
+      : 'Enter a path accessible to your Python kernel. Browse… needs a workbook opened with reaktiv-workbook edit.';
   button.title = host.pickPath ? `Choose ${kind}` : 'Browsing needs a workbook opened with reaktiv-workbook edit';
   const error = document.createElement('span'); error.className = 'rw-action-error';
+  error.id = `rw-path-error-${++nextId}`;
   error.setAttribute('role', 'alert'); error.hidden = true;
+  let refused = false;
+  const showRefusal = (message: string | undefined) => {
+    refused = !!message;
+    error.textContent = message ?? ''; error.hidden = !message;
+    if (message) { field.setAttribute('aria-invalid', 'true'); field.setAttribute('aria-describedby', error.id); }
+    else { field.removeAttribute('aria-invalid'); field.removeAttribute('aria-describedby'); }
+  };
+  showRefusal(model.rejected?.message);
   const active = () => root.isConnected && root.contains(field);
   let picking = false;
   field.addEventListener('change', () => {
     if (!model.disabled && !picking) change(field.value);
+  });
+  field.addEventListener('keydown', event => {
+    // Escape gives up a refused (or unsent) edit: back to the input's current value.
+    if (event.key !== 'Escape' || field.value === current && !refused) return;
+    event.preventDefault(); event.stopPropagation();
+    field.value = current; showRefusal(undefined);
+    if (!model.disabled) change(current);
   });
   button.addEventListener('click', async () => {
     if (!host.pickPath || model.disabled || picking) return;

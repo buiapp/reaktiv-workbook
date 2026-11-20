@@ -32,6 +32,7 @@ export class RichWidgetComponent implements OnChanges {
   @Input() cancelWhileRunning = false;
   @Input() actionState?: 'running' | 'cancelling';
   @Input() actionError?: string;
+  @Input() rejected?: { value: string; message: string };
   @Output() readonly actionInvoked = new EventEmitter<string>();
   @Output() readonly valueChange = new EventEmitter<WidgetValue>();
 
@@ -54,6 +55,7 @@ export class RichWidgetComponent implements OnChanges {
       cancelWhileRunning: this.cancelWhileRunning,
       actionState: this.actionState,
       actionError: this.actionError,
+      rejected: this.rejected,
     };
     const signature = JSON.stringify(model);
     if (signature === this.shown) return;

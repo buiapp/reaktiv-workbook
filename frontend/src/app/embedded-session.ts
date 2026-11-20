@@ -16,6 +16,8 @@ export interface EmbeddedSessionState {
   assets?: Record<string, string>;
   /** CLI sessions: the session's Python, and whether the CLI can restart it with the workbook's packages. */
   environment?: SessionEnvironment;
+  /** Shared on a network (`--allow-remote`): path inputs must stay in the workbook's folder. */
+  pathsInWorkbookFolder?: boolean;
   revision: number;
   document: SheetDocument;
   graph: GraphResult;

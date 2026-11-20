@@ -800,7 +800,7 @@ class SheetWidgetView implements NodeView {
       this.dom.replaceChildren(missing);
       return;
     }
-    const layout = JSON.stringify([widget.cellId, widget.type, widget.label, widget.min, widget.max, widget.step, widget.options, widget.disabled, widget.loading, widget.pressed, widget.placeholder, widget.buttonMode, widget.cancelWhileRunning, widget.actionState, widget.action, widget.actionArguments, widget.actionError, widget.error, widget.linked, widget.debounce, this.renderer.interactive()]);
+    const layout = JSON.stringify([widget.cellId, widget.type, widget.label, widget.min, widget.max, widget.step, widget.options, widget.disabled, widget.loading, widget.pressed, widget.placeholder, widget.buttonMode, widget.cancelWhileRunning, widget.actionState, widget.action, widget.actionArguments, widget.actionError, widget.rejected, widget.error, widget.linked, widget.debounce, this.renderer.interactive()]);
     if (isRichWidget(widget.type)) {
       this.renderRich(widget, layout);
       this.showError(widget);

@@ -1724,6 +1724,7 @@ app-root .sheet-widget-node > .linked-reset:disabled { opacity: .5; cursor: defa
 .rich-widget .rw-path { display: flex; flex-direction: column; gap: 4px; min-width: 0; width: 100%; }
 .rich-widget .rw-path-row { display: flex; gap: 6px; min-width: 0; }
 .rich-widget .rw-path-row input { flex: 1; min-width: 0; width: 0; }
+.rich-widget .rw-path-row input[aria-invalid="true"] { border-color: light-dark(#b32b2b, #ff9c9c); box-shadow: 0 0 0 1px light-dark(#b32b2b, #ff9c9c); }
 .rich-widget .rw-path-row button { flex: none; white-space: nowrap; }
 .rich-widget .rw-path-hint { color: var(--muted); font-size: 10px; line-height: 1.3; }
 
