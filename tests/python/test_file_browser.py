@@ -1,4 +1,5 @@
 """The CLI session's folder listing behind the file/folder picker."""
+import ast
 import json
 from pathlib import Path
 from urllib.error import HTTPError
@@ -72,3 +73,36 @@ def test_session_api_lists_the_workbook_folder_also_in_run_mode_and_requires_the
         assert error.value.code == 401
         session.mode = 'run'  # path widgets are input controls in app mode too
         assert post(endpoint, token, '/v1/files', {'path': 'data'})['entries']
+
+
+def test_a_root_confines_listings_and_resolves_links_and_parents_first(folder: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
+    outside = tmp_path_factory.mktemp('outside')
+    (folder / 'escape').symlink_to(outside, target_is_directory=True)
+    listing = list_directory({}, folder, folder)
+    assert listing['parent'] is None and listing['home'] == str(folder.resolve())
+    assert list_directory({'path': 'data'}, folder, folder)['parent'] == str(folder.resolve())
+    for path in ('..', str(outside), 'escape', 'data/../..', '~'):
+        with pytest.raises(PermissionError, match="workbook's folder"):
+            list_directory({'path': path}, folder, folder)
+
+
+def test_a_network_session_keeps_the_picker_and_path_inputs_in_the_workbook_folder(folder: Path) -> None:
+    path = folder / 'picker.workbook.py'
+    SheetDocument(name='Picker', cells=(
+        CellDefinition('A1', 'input', '"data/secret.csv"', name='source', view={'widget': {'type': 'file'}}),
+        CellDefinition('A2', 'input', '"free text"', name='note'),
+    )).save(path)
+    with WorkbookSession.load(path) as session:
+        parts = urlsplit(session.open_editor(host='0.0.0.0', open_browser=False, allow_remote=True))
+        endpoint, token = f'http://127.0.0.1:{parts.port}', parse_qs(parts.fragment)['token'][0]
+        session.mode = 'run'
+        assert post(endpoint, token, '/v1/files', {'path': 'data'})['entries']
+        for request in (('/v1/files', {'path': '/'}), ('/v1/set-inputs', {'sources': {'A1': '"/etc/passwd"'}}),
+                        ('/v1/set-inputs', {'sources': {'A1': '"../outside.csv"'}})):
+            with pytest.raises(HTTPError) as refused:
+                post(endpoint, token, *request)
+            assert refused.value.code == 403
+        assert session.document.cells[0].source == '"data/secret.csv"'
+        post(endpoint, token, '/v1/set-inputs', {'sources': {'A1': '"Notes.txt"', 'A2': '"/etc/passwd"'}})
+        # Other inputs are ordinary values; only file and folder inputs are paths.
+        assert [ast.literal_eval(cell.source) for cell in session.document.cells] == ['Notes.txt', '/etc/passwd']

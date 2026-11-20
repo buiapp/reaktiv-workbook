@@ -49,14 +49,15 @@ reaktiv-workbook edit analysis.workbook.py --host 0.0.0.0 --allow-remote --port 
 The command prints a link with your computer's network address; send it to the people
 who should join. Everyone works in the same running workbook: when one person moves a
 slider, everyone sees it. With `run` instead of `edit`, people can only use the
-workbook: change inputs, use widgets and run its exposed actions.
+workbook: change inputs, use widgets and run its exposed actions. File and folder inputs only
+accept paths inside the workbook's folder.
 
 **Anyone with the link can edit the workbook and run Python as you.** Share it only on a
 network you trust. The link travels as plain HTTP, so on other networks put HTTPS in
 front and share that address instead, for example with
 [Tailscale](https://tailscale.com/kb/1312/serve) (`tailscale serve 8800`) or a reverse
-proxy such as Caddy. Then the workbook can stay on `--host 127.0.0.1`: copy the printed
-link and change only its address. Some browser features, such as copy buttons and pasting
+proxy such as Caddy. Then leave out `--host` but keep `--allow-remote`, so the workbook
+knows it is shared; copy the printed link and change only its address. Some browser features, such as copy buttons and pasting
 images, need HTTPS. `--mcp` works only without `--host`.
 
 ## Check and evaluate

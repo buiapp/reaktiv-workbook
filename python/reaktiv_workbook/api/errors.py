@@ -47,6 +47,11 @@ def install_error_handlers(app: FastAPI) -> None:
     async def move_conflict(_: Request, error: Exception) -> JSONResponse:
         return error_response(status.HTTP_409_CONFLICT, python_error(error))
     app.add_exception_handler(MoveConflict, move_conflict)
+
+    async def forbidden(_: Request, error: Exception) -> JSONResponse:
+        # Refused by policy (a shared session's path limits): retrying another way cannot help.
+        return error_response(status.HTTP_403_FORBIDDEN, python_error(error))
+    app.add_exception_handler(PermissionError, forbidden)
     app.add_exception_handler(StarletteHTTPException, http_error)
     app.add_exception_handler(RequestValidationError, validation_error)
     app.add_exception_handler(KeyError, not_found)

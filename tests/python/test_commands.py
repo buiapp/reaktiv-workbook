@@ -330,3 +330,15 @@ def test_missing_packages_offer_a_sandbox_in_a_terminal(tmp_path, monkeypatch, c
     monkeypatch.setenv(sandbox.SANDBOXED, '1')
     assert command_main(['run', str(path), '--headless']) == 0
     assert len(sandboxed) == 1 and 'not installed' not in capsys.readouterr().err
+
+
+def test_allow_remote_marks_a_proxied_loopback_session_as_shared(workbook):
+    assert standalone.remote_warning('127.0.0.1', 'run', False) == ''
+    assert 'proxy' in standalone.remote_warning('127.0.0.1', 'run', True)
+    assert 'run Python' in standalone.remote_warning('0.0.0.0', 'edit', True)
+    with SheetSession(workbook) as session:
+        session.open_editor(open_browser=False)
+        assert session.shared_root is None
+    with SheetSession(workbook) as session:
+        session.open_editor(open_browser=False, allow_remote=True)
+        assert session.shared_root == workbook.parent

@@ -24,6 +24,7 @@ import { updateTracingEnabled } from './feature-flags';
 import { GraphWorkspace } from './graph/graph-workspace';
 import { ActionWorkspace } from './actions/action-workspace';
 import { pythonErrorMessage } from './runtime/error-message';
+import { KernelRequestError } from './runtime/http-kernel-transport';
 import { WorkbookState } from './workbook/workbook-state';
 import { shareCellResults } from './workbook/result-sharing';
 import { affectedCellIds, cloneCells, isNotePage, sameCell, sameComputation, sortCells } from './workbook/cell-model';
@@ -4380,7 +4381,7 @@ export class App implements OnInit, OnDestroy {
   private readonly widgetWriteVersions = new Map<string, number>();
   private widgetApplyBarrier = 0;
 
-  private async writeWidgetDuringAction(sources: Map<string, string>): Promise<void> {
+  private async writeWidgetDuringAction(sources: Map<string, string>, previous: Map<string, string | undefined>): Promise<void> {
     const generation = this.workbookCommands.generation, evaluation = this.widgetApplyBarrier;
     const versions = new Map([...sources.keys()].map(id => [id, this.widgetWriteVersions.get(id)]));
     let accepted = false;
@@ -4391,6 +4392,17 @@ export class App implements OnInit, OnDestroy {
     }
     catch (error) {
       if (generation !== this.workbookCommands.generation) return;
+      if (error instanceof KernelRequestError && error.status === 403) {
+        // Refused by policy (a shared session's path limits): restore the value, never retry.
+        this.cells.update(cells => cells.map(cell => {
+          if (!previous.has(cell.id) || versions.get(cell.id) !== this.widgetWriteVersions.get(cell.id)) return cell;
+          const value = previous.get(cell.id);
+          return cell.kind === 'linked' ? {...cell, override: value} : {...cell, source: value ?? cell.source};
+        }));
+        if (previous.has(this.selectedId())) this.syncEditor();
+        this.evaluationError = pythonErrorMessage(error);
+        return;
+      }
       this.logSystem('warning', `Live widget update could not be queued; applying after the action. ${pythonErrorMessage(error)}`);
     }
     if (accepted || generation !== this.workbookCommands.generation) return;
@@ -4414,12 +4426,14 @@ export class App implements OnInit, OnDestroy {
   private updateInputsFromWidget(changes: readonly MarkdownWidgetChange[]): void {
     if (!this.requireKernel()) return;
     const sources = new Map<string, string>();
+    const previous = new Map<string, string | undefined>();
     for (const change of changes) {
       const definition = this.definitionAt(change.cellId);
       if (!definition || !['input', 'linked'].includes(definition.kind) || change.source === '') continue;
       // The comment above the value ("# rent per month") stays with the cell.
       const source = definition.kind === 'linked' ? change.source : withInputComments(definition.source, change.source);
-      if ((definition.kind === 'linked' ? definition.override : definition.source) !== source) sources.set(change.cellId, source);
+      const current = definition.kind === 'linked' ? definition.override : definition.source;
+      if (current !== source) { sources.set(change.cellId, source); previous.set(change.cellId, current); }
     }
     if (sources.size === 0) return;
     // One undo step per drag, not one per intermediate value.
@@ -4437,7 +4451,7 @@ export class App implements OnInit, OnDestroy {
     );
     for (const id of sources.keys()) this.widgetWriteVersions.set(id, (this.widgetWriteVersions.get(id) ?? 0) + 1);
     if (sources.has(this.selectedId())) this.syncEditor();
-    void this.writeWidgetDuringAction(sources);
+    void this.writeWidgetDuringAction(sources, previous);
   }
 
   protected overrideLinkedInput(id: string, source: string): void {

@@ -51,13 +51,16 @@ def agent_instructions(bridge: AgentBridge) -> str:
     return '\n'.join(lines) + '\n'
 
 
-def remote_warning(host: str, mode: Literal['edit', 'run']) -> str:
-    """Said when the session listens beyond this computer."""
+def remote_warning(host: str, mode: Literal['edit', 'run'], allow_remote: bool) -> str:
+    """Said when the session is shared beyond this computer (``--allow-remote``)."""
     from .session import LOOPBACK_HOSTS
-    if host in LOOPBACK_HOSTS:
+    if not allow_remote:
         return ''
     access = ('edit the workbook and run Python as you' if mode == 'edit' else
-              "change its inputs, run its exposed actions and see file names on this computer")
+              'change its inputs and run its exposed actions')
+    if host in LOOPBACK_HOSTS:
+        return (f'Shared through your proxy or tunnel: anyone who reaches this link can {access}.\n'
+                "  File and folder inputs accept only paths inside the workbook's folder.\n")
     return (f'Listening on the network: anyone with this link can {access}.\n'
             '  The link travels as plain HTTP; on an untrusted network, put HTTPS in front (a reverse proxy or\n'
             '  `tailscale serve`) and share that address instead. Through a proxy, change only the address.\n')
@@ -187,7 +190,7 @@ def serve_workbook(path: Path, *, mode: Literal['edit', 'run'], host: str = '127
                 bridge = AgentBridge(mcp_port, f'{parts.scheme}://{parts.netloc}')
                 url = with_agent_bridge(url, bridge.endpoint, bridge.token)
                 agents = agent_instructions(bridge)
-            print(f'Reaktiv Workbook · {mode} · {path}\n{url}\n{agents}{remote_warning(host, mode)}Press Ctrl+C to stop.',
+            print(f'Reaktiv Workbook · {mode} · {path}\n{url}\n{agents}{remote_warning(host, mode, allow_remote)}Press Ctrl+C to stop.',
                   flush=True)
             if open_browser:
                 webbrowser.open(url)

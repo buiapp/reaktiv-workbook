@@ -119,7 +119,9 @@ class _SessionRuntime(RuntimeServer):
         if path == '/v1/files':
             # Path widgets pick paths on the machine running the CLI; names only, no contents.
             from .file_browser import list_directory
-            return list_directory(payload, self.session.path.parent)
+            return list_directory(payload, self.session.path.parent, self.session.shared_root)
+        if path == '/v1/set-inputs' and self.session.shared_root is not None:
+            self._check_shared_paths(payload)
         if path == '/v1/git':
             # The workbook's own folder; the browser never chooses where git runs.
             from .git_host import run_git
@@ -134,6 +136,23 @@ class _SessionRuntime(RuntimeServer):
         if path in PASSIVE:
             return super().dispatch(path, payload)
         return self.session.submit(self.execute(path, payload))
+
+    def _check_shared_paths(self, payload: Mapping[str, Any]) -> None:
+        """File and folder inputs of a network session take paths inside the workbook's folder."""
+        import ast
+        from .file_browser import resolve_within
+        sources = as_mapping(payload.get('sources')) or {}
+        for cell in self.session.document.cells:
+            source = sources.get(cell.id)
+            widget = as_mapping((cell.view or {}).get('widget'))
+            if not isinstance(source, str) or widget is None or widget.get('type') not in ('file', 'folder'):
+                continue
+            try:
+                value = ast.literal_eval(source)
+            except (ValueError, SyntaxError):
+                continue  # not a literal: the runtime refuses it
+            if isinstance(value, str) and value:
+                resolve_within(value, self.session.path.parent, self.session.shared_root)
 
     async def _reload_from_disk(self) -> None:
         async with self.gate:
@@ -270,6 +289,8 @@ class WorkbookSession:
         self.mode: Literal['embedded', 'edit', 'run'] = 'embedded'
         # Set by the CLI (`reaktiv-workbook edit`): restart Python with the editor's workbook.
         self.restart: Callable[[SheetDocument], None] | None = None
+        # Shared on the network: paths from the browser must stay inside this folder.
+        self.shared_root: Path | None = None
         document = document if document is not None else SheetDocument.load(self.path)
         self.note_source_format()
         self.loop = asyncio.new_event_loop()
@@ -578,6 +599,10 @@ class WorkbookSession:
         remote = host not in LOOPBACK_HOSTS
         if remote and not allow_remote:
             raise ValueError('Listening on a network address needs allow_remote=True')
+        if allow_remote:
+            # Shared (directly or through a proxy): the file/folder picker and path inputs
+            # stay inside the workbook's folder.
+            self.shared_root = self.path.parent
         if remote and app_url:
             raise ValueError('A network session serves its own editor; omit app_url')
         base = urlsplit(app_url) if app_url else None

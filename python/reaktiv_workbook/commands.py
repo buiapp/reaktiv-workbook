@@ -42,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
         child.add_argument('--host', default='127.0.0.1',
                            help='Listen address (default: 127.0.0.1). Other addresses, such as 0.0.0.0, need --allow-remote')
         child.add_argument('--allow-remote', action='store_true',
-                           help='Allow a network --host: anyone with the printed link can edit the workbook and run Python '
+                           help='Share the session: allows a network --host, or marks a session served through a proxy. Anyone with the printed link can edit the workbook and run Python '
                                 'as you. Use only on a trusted network, ideally behind HTTPS')
         child.add_argument('--headless', '--no-browser', action='store_true', help='Print the URL without opening a browser')
         child.add_argument('--sandbox', action='store_true', help=SANDBOX_HELP)
