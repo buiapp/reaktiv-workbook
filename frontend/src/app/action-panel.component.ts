@@ -19,7 +19,6 @@ import type {
   ActionDefinition,
   ActionResult,
   CellDefinition,
-  EffectResult,
 } from './sheet.types';
 import { renderTableHtml } from './data-table';
 
@@ -77,16 +76,6 @@ import { renderTableHtml } from './data-table';
             </button>
           }
           @if (!listedActions.length) { <p class="list-empty">{{search ? 'No matching actions.' : 'No actions yet.'}}</p> }
-          @if (manualEffects.length) { <span class="list-group">Manual effects</span> }
-          @for (item of manualEffects; track item.id) {
-            <button
-              type="button"
-              [class.chosen]="selected === 'effect:' + item.id"
-              (click)="choose('effect:' + item.id)"
-            >
-              ⚡ {{ cellLabel(item.id) }}
-            </button>
-          }
           @if (busyName || runningNames.length) {
             <p class="execution-hint">Actions are running. Editing is paused; other actions can still run.</p>
           }
@@ -137,31 +126,33 @@ import { renderTableHtml } from './data-table';
             </div>
           } @else if (current; as item) {
             <ng-container *ngTemplateOutlet="runForm" />
-          } @else if (selected.startsWith('effect:')) {
-            <h3>{{ cellLabel(selected.slice(7)) }}</h3>
-            <p>Manual effect. It runs only when requested.</p>
-            <button
-              class="primary-button"
-              type="button"
-              [disabled]="!enabled || !!busyName || !selectedEffect?.enabled"
-              (click)="invoked.emit({ name: selected, arguments: {} })"
-            >
-              Run effect
-            </button>
-            @if (selectedEffect?.error) {
-              <pre role="alert">{{ selectedEffect?.error }}</pre>
-            }
-            <pre>{{ selectedEffect?.output }}</pre>
-            <label
-              >Button link for notes<input
-                readonly
-                [value]="'[' + cellLabel(selected.slice(7)) + '](#sheet-action:' + selected + ')'"
-            /></label>
           } @else {
-            <p>
-              Create an action or select a manual effect. Methods can also be declared with
-              <code>@action</code> in your workbook file.
-            </p>
+            <div class="action-empty">
+              <h3>{{ actions.length ? 'Choose an action' : 'Actions' }}</h3>
+              <p>
+                An action is a command you run on purpose: import data, reset a scenario,
+                export a report. Formulas update by themselves when their inputs change; an
+                action runs only when someone chooses <strong>Run</strong>, presses its button
+                in a note, or an agent calls it.
+              </p>
+              <ul>
+                <li>It can read any cell and set inputs: <code>self.Sheet1.price.set(10)</code></li>
+                <li>Its parameters become a form, so it can ask for values when it runs</li>
+                <li>What it returns (a value, table or chart) is shown here</li>
+              </ul>
+              <pre class="action-example"><code>def reset_scenario(self, growth: float = 0.05):
+    """Back to the default assumptions."""
+    self.Sheet1.growth.set(growth)</code></pre>
+              @if (mode === 'workspace') {
+                @if (canEdit) {
+                  <button class="primary-button" type="button" [disabled]="!enabled || !!busyName || applying" (click)="create()">
+                    <app-ui-icon name="plus" />New action
+                  </button>
+                } @else {
+                  <p class="action-empty-hint">Choose <strong>Edit</strong> to create actions.</p>
+                }
+              }
+            </div>
           }
           @if (applying || applyMessage) { <p role="status" aria-live="polite">{{applying ? 'Applying action edits…' : applyMessage}}</p> }
           @if (localError || error) {
@@ -360,7 +351,6 @@ export class ActionPanelComponent implements OnChanges {
   }
   @Input() definitions: ActionDefinition[] = [];
   @Input() actions: ActionResult[] = [];
-  @Input() effects: EffectResult[] = [];
   @Input() cells: CellDefinition[] = [];
   @Input() enabled = false;
   @Input() canEdit = true;
@@ -425,12 +415,6 @@ export class ActionPanelComponent implements OnChanges {
   private parameterKey = '';
   readonly tableHtml = renderTableHtml;
   readonly stringify = JSON.stringify;
-  get manualEffects() {
-    return this.effects.filter((item) => item.trigger === 'manual');
-  }
-  get selectedEffect() {
-    return this.effects.find((item) => item.id === this.selected.slice(7));
-  }
   get current() {
     return this.actions.find((item) => item.name === this.selected);
   }

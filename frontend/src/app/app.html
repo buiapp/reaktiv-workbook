@@ -475,7 +475,7 @@
   </ng-template>
 
   @defer (when actionsOpen()) {
-  <app-action-panel #actionWorkspacePanel class="actions-page" [hidden]="!actionsOpen()" mode="workspace" [definitions]="actionDefinitions()" [actions]="graph().actions ?? []" [effects]="graph().effects" [cells]="cells()"
+  <app-action-panel #actionWorkspacePanel class="actions-page" [hidden]="!actionsOpen()" mode="workspace" [definitions]="actionDefinitions()" [actions]="graph().actions ?? []" [cells]="cells()"
       [canEdit]="workbookEditing() && !appRun()" [enabled]="kernelRunning()" [busyName]="runningAction()" [runningNames]="runningActionNames()" [error]="actionError()" [applying]="actionApplying() || saving()" [applied]="actionApplied()" [selected]="selectedAction()" [initialSource]="actionInitialSource()" [initialArguments]="actionInitialArguments()" [completions]="actionCompletions()" [languageService]="editorLanguageService" [pinned]="pinnedActionNames()"
       (pinToggled)="toggleActionPin($event)"
       (closed)="actionsOpen.set(false)" (invoked)="invokeAction($event)" (saved)="saveAction($event)" (bindingsSaved)="saveActionBindings($event)" (cancelled)="cancelAction($event)" (invocationCancelled)="cancelAction($event.name, $event.id)" (removed)="removeAction($event)" />
@@ -2770,7 +2770,7 @@
 
   @if (actionRunnerOpen()) {
     @defer (on immediate) {
-    <app-action-panel mode="runner" [definitions]="actionDefinitions()" [actions]="graph().actions ?? []" [effects]="graph().effects" [cells]="cells()"
+    <app-action-panel mode="runner" [definitions]="actionDefinitions()" [actions]="graph().actions ?? []" [cells]="cells()"
       [canEdit]="workbookEditing() && !appRun()" [enabled]="kernelRunning()" [busyName]="runningAction()" [runningNames]="runningActionNames()" [error]="actionError()" [applying]="actionApplying() || saving()" [selected]="runnerSelectedAction()" [initialArguments]="actionInitialArguments()" [pinned]="pinnedActionNames()"
       (pinToggled)="toggleActionPin($event)" (managed)="openActions()"
       (closed)="actionRunnerOpen.set(false)" (invoked)="invokeAction($event)" (cancelled)="cancelAction($event)" (invocationCancelled)="cancelAction($event.name, $event.id)" (bindingsSaved)="saveActionBindings($event)" />
