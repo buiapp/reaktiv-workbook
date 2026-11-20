@@ -29,7 +29,7 @@ class Sheet1Worksheet(Worksheet["LabelsWorkbook"]):
     def tax(self):
         return self.revenue() * self.tax_rate()
 
-    @cell("C1", enabled=True, trigger="manual")
+    @cell("C1", enabled=True)
     @effect
     def c1(self):
         print(f"net: {self.net()}")

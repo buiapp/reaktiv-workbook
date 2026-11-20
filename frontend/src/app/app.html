@@ -1918,14 +1918,6 @@
         }
       </div>
 
-      @if (editorKind === 'effect') {
-        <label class="field-label" for="effect-trigger">Trigger mode</label>
-        <select id="effect-trigger" class="field-control" [(ngModel)]="editorTrigger">
-          <option value="auto">Automatic when dependencies change</option>
-          <option value="manual">Manual run only</option>
-        </select>
-      }
-
       @if (selectedTypeFindings().length > 0) {
         <ul class="type-findings" aria-label="Type checking">
           @for (finding of selectedTypeFindings(); track $index) {
@@ -2086,16 +2078,6 @@
                 ⚡ {{ effect.id }}
               </button>
               <div class="effect-actions">
-                @if (effect.trigger === 'manual') {
-                  <button
-                    class="run-effect-button"
-                    type="button"
-                    [disabled]="!effect.enabled || runtime.status() === 'running'"
-                    (click)="runEffect(effect.id)"
-                  >
-                    Run
-                  </button>
-                }
                 <label class="switch" [attr.aria-label]="'Toggle effect ' + effect.id">
                   <input
                     type="checkbox"
@@ -2107,7 +2089,7 @@
               </div>
             </div>
             <div class="effect-meta">
-              <span>{{ effect.trigger }} · {{ effect.status }}</span>
+              <span>{{ effect.status }}</span>
               <span>{{ effect.triggerCount }} run{{ effect.triggerCount === 1 ? '' : 's' }}</span>
             </div>
             <div class="effect-meta">

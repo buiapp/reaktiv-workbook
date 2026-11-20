@@ -40,7 +40,7 @@ class Sheet1Worksheet(Worksheet["EffectInputWritesWorkbook"]):
             cells.price.set(7)
 
 
-    @cell("D1", enabled=True, trigger="manual")
+    @cell("D1", enabled=True, trigger="auto")
     @effect
     def d1(self):
         cells = cell_refs(self, "Sheet1")

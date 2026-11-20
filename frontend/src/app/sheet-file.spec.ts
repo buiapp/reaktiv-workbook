@@ -18,28 +18,25 @@ describe('Reaktiv Workbook Python file format', () => {
       12,
       30,
       [
-        { id: 'A1', kind: 'input', source: '125000', enabled: true, trigger: 'auto' },
-        { id: 'A2', kind: 'formula', source: 'A1 * .2', enabled: true, trigger: 'auto' },
+        { id: 'A1', kind: 'input', source: '125000', enabled: true },
+        { id: 'A2', kind: 'formula', source: 'A1 * .2', enabled: true },
         {
           id: 'A3',
           kind: 'formula',
           source: "subtotal = A2 * 2\nprint('calculated')\nreturn subtotal + 1",
           enabled: true,
-          trigger: 'auto',
         },
         {
           id: 'B1',
           kind: 'resource',
           source: "await asyncio.sleep(0)\nreturn {'value': A2}",
           enabled: true,
-          trigger: 'auto',
         },
         {
           id: 'C1',
           kind: 'markdown',
           source: '# Result\n\n{{ B1 }}',
           enabled: true,
-          trigger: 'auto',
         },
         {
           id: 'C2',
@@ -47,14 +44,12 @@ describe('Reaktiv Workbook Python file format', () => {
           kind: 'markdown',
           source: '# Assumptions\n\nRevenue: {{ A1 }}',
           enabled: true,
-          trigger: 'auto',
         },
         {
           id: 'D1',
           kind: 'effect',
           source: 'print(f"value:{A2}", "A2")  # A2',
           enabled: true,
-          trigger: 'manual',
         },
         {
           id: 'E1',
@@ -62,7 +57,6 @@ describe('Reaktiv Workbook Python file format', () => {
           kind: 'formula',
           source: "artifact(b'report', 'report.txt', 'text/plain')",
           enabled: true,
-          trigger: 'auto',
         },
       ],
       ['httpx>=0.28'],
@@ -93,8 +87,8 @@ describe('Reaktiv Workbook Python file format', () => {
 
   it('rejects duplicate cells before serialization', () => {
     const document = createSheetDocument('Duplicate', 10, 16, [
-      { id: 'A1', kind: 'input', source: '1', enabled: true, trigger: 'auto' },
-      { id: 'A1', kind: 'input', source: '2', enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'input', source: '1', enabled: true },
+      { id: 'A1', kind: 'input', source: '2', enabled: true },
     ]);
     expect(() => serializeSheetDocument(document)).toThrow(/Duplicate cell id/);
   });
@@ -107,7 +101,6 @@ describe('Reaktiv Workbook Python file format', () => {
         kind: 'input',
         source: '10',
         enabled: true,
-        trigger: 'auto',
       },
       {
         id: 'B1',
@@ -115,7 +108,6 @@ describe('Reaktiv Workbook Python file format', () => {
         kind: 'formula',
         source: 'deadline * 2',
         enabled: true,
-        trigger: 'auto',
       },
       {
         id: 'C1',
@@ -123,7 +115,6 @@ describe('Reaktiv Workbook Python file format', () => {
         kind: 'formula',
         source: 'deadline = A1 + 1\nreturn deadline * 3',
         enabled: true,
-        trigger: 'auto',
       },
     ]);
 
@@ -137,8 +128,8 @@ describe('Reaktiv Workbook Python file format', () => {
 
   it('keeps coordinate-addressable cells unlabeled', () => {
     const document = createSheetDocument('Coordinates', 5, 5, [
-      { id: 'A1', kind: 'input', source: '10', enabled: true, trigger: 'auto' },
-      { id: 'B1', kind: 'formula', source: 'A1 * 2', enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'input', source: '10', enabled: true },
+      { id: 'B1', kind: 'formula', source: 'A1 * 2', enabled: true },
     ]);
 
     expect(document.cells.map((cell) => cell.name)).toEqual([undefined, undefined]);
@@ -151,8 +142,8 @@ describe('Reaktiv Workbook Python file format', () => {
   it('rewrites a removed label back to its coordinate', () => {
     const renamed = renameCell(
       [
-        { id: 'A1', name: 'revenue', kind: 'input', source: '10', enabled: true, trigger: 'auto' },
-        { id: 'B1', kind: 'formula', source: 'revenue * 2', enabled: true, trigger: 'auto' },
+        { id: 'A1', name: 'revenue', kind: 'input', source: '10', enabled: true },
+        { id: 'B1', kind: 'formula', source: 'revenue * 2', enabled: true },
       ],
       'A1',
       '',
@@ -171,7 +162,6 @@ describe('Reaktiv Workbook Python file format', () => {
           kind: 'input',
           source: '10',
           enabled: true,
-          trigger: 'auto',
         },
         {
           id: 'B1',
@@ -179,7 +169,6 @@ describe('Reaktiv Workbook Python file format', () => {
           kind: 'formula',
           source: 'revenue * 2',
           enabled: true,
-          trigger: 'auto',
         },
         {
           id: 'C1',
@@ -187,7 +176,6 @@ describe('Reaktiv Workbook Python file format', () => {
           kind: 'markdown',
           source: '[Revenue: {{ revenue }}](#sheet-input:revenue?type=number)',
           enabled: true,
-          trigger: 'auto',
         },
         {
           id: 'D1',
@@ -195,7 +183,6 @@ describe('Reaktiv Workbook Python file format', () => {
           kind: 'formula',
           source: 'revenue = 4\nreturn revenue * 3',
           enabled: true,
-          trigger: 'auto',
         },
       ],
       'A1',
@@ -222,7 +209,6 @@ describe('Reaktiv Workbook Python file format', () => {
           kind: 'formula',
           source: 'subtotal = 20\nsubtotal * 2',
           enabled: true,
-          trigger: 'auto',
           color: '#cde7ae',
         },
       ],
@@ -267,14 +253,13 @@ describe('PEP 723 script metadata', () => {
 
   it('keeps comments of input cells above the member so the value stays a literal', () => {
     const document = createSheetDocument('Comments', 3, 3, [
-      { id: 'A1', kind: 'input', source: '# monthly rent\n1200', enabled: true, trigger: 'auto' },
-      { id: 'A2', kind: 'input', source: '"# Heading\\nplain text"', enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'input', source: '# monthly rent\n1200', enabled: true },
+      { id: 'A2', kind: 'input', source: '"# Heading\\nplain text"', enabled: true },
       {
         id: 'A3',
         kind: 'input',
         source: '"note"',
         enabled: true,
-        trigger: 'auto',
         view: { markdown: false },
       },
     ]);
@@ -285,7 +270,7 @@ describe('PEP 723 script metadata', () => {
   });
 
   it('writes comments after an input value above the member, never inside field(…)', () => {
-    const input = (id: string, source: string) => ({ id, kind: 'input' as const, source, enabled: true, trigger: 'auto' as const });
+    const input = (id: string, source: string) => ({ id, kind: 'input' as const, source, enabled: true });
     const source = serializeSheetDocument(
       createSheetDocument('Trailing', 3, 6, [
         input('A1', '999\n# minus the parking space'),
@@ -304,8 +289,8 @@ describe('PEP 723 script metadata', () => {
   });
 
   it('keeps explicit cell handles attached through label renames and file generation', () => {
-    const cells: CellDefinition[] = [{id: 'A1', name: 'count', kind: 'input', source: '0', enabled: true, trigger: 'auto'},
-      {id: 'B1', kind: 'effect', source: 'cells.count.update(lambda count: count + 1)\ncells.Sheet1.count.set(3)', enabled: true, trigger: 'auto'}];
+    const cells: CellDefinition[] = [{id: 'A1', name: 'count', kind: 'input', source: '0', enabled: true},
+      {id: 'B1', kind: 'effect', source: 'cells.count.update(lambda count: count + 1)\ncells.Sheet1.count.set(3)', enabled: true}];
     const renamed = renameCell(cells, 'A1', 'counter');
     expect(renamed[1].source).toBe('cells.counter.update(lambda count: count + 1)\ncells.Sheet1.counter.set(3)');
     const file = serializeSheetDocument(createSheetDocument('Writes', 4, 4, cells));
@@ -319,15 +304,14 @@ describe('PEP 723 script metadata', () => {
       3,
       3,
       [
-        { id: 'A1', kind: 'input', source: '100', enabled: true, trigger: 'auto' },
-        { id: 'A2', kind: 'formula', source: 'gross(A1)', enabled: true, trigger: 'auto' },
+        { id: 'A1', kind: 'input', source: '100', enabled: true },
+        { id: 'A2', kind: 'formula', source: 'gross(A1)', enabled: true },
         {
           id: 'A3',
           name: 'tax',
           kind: 'formula',
           source: 'def tax(amount):\n    return amount * A1',
           enabled: true,
-          trigger: 'auto',
         },
       ],
       [],
@@ -350,7 +334,7 @@ describe('PEP 723 script metadata', () => {
   it('writes multi-line string inputs on one line, so class indentation cannot change them', () => {
     const source = serializeSheetDocument(
       createSheetDocument('Strings', 5, 5, [
-        { id: 'A1', name: 'css', kind: 'input', source: '# cards\n"""\n.card { color: red; }"""', enabled: true, trigger: 'auto' },
+        { id: 'A1', name: 'css', kind: 'input', source: '# cards\n"""\n.card { color: red; }"""', enabled: true },
       ]),
     );
     expect(source).toContain(`css = cell("A1", field('\\n.card { color: red; }'), label="css")`);
@@ -359,15 +343,14 @@ describe('PEP 723 script metadata', () => {
   it('keeps keyword argument names that are also cell labels', () => {
     const source = serializeSheetDocument(
       createSheetDocument('Keywords', 5, 5, [
-        { id: 'A1', name: 'today', kind: 'input', source: '"2026-10-06"', enabled: true, trigger: 'auto' },
-        { id: 'A2', name: 'columns', kind: 'input', source: '3', enabled: true, trigger: 'auto' },
+        { id: 'A1', name: 'today', kind: 'input', source: '"2026-10-06"', enabled: true },
+        { id: 'A2', name: 'columns', kind: 'input', source: '3', enabled: true },
         {
           id: 'B1',
           name: 'board',
           kind: 'formula',
           source: 'dict(columns=columns, today=today, flag=(columns == 3))',
           enabled: true,
-          trigger: 'auto',
         },
       ]),
     );
@@ -377,14 +360,13 @@ describe('PEP 723 script metadata', () => {
   it('returns a final expression that continues over several lines', () => {
     const source = serializeSheetDocument(
       createSheetDocument('Multiline', 5, 5, [
-        { id: 'A1', name: 'task_text', kind: 'input', source: '"x"', enabled: true, trigger: 'auto' },
+        { id: 'A1', name: 'task_text', kind: 'input', source: '"x"', enabled: true },
         {
           id: 'B1',
           name: 'board',
           kind: 'formula',
           source: '# the board\nbind(dict(cards=1,\n          wip=2), text=task_text)',
           enabled: true,
-          trigger: 'auto',
         },
         {
           id: 'B2',
@@ -392,7 +374,6 @@ describe('PEP 723 script metadata', () => {
           kind: 'formula',
           source: 'values = [1, 2]\nreturn sum(\n    values)',
           enabled: true,
-          trigger: 'auto',
         },
       ]),
     );
@@ -403,15 +384,14 @@ describe('PEP 723 script metadata', () => {
   it('keeps local names that are also cell labels (tuple, loop, with, walrus)', () => {
     const source = serializeSheetDocument(
       createSheetDocument('Locals', 5, 5, [
-        { id: 'A1', name: 'steps', kind: 'input', source: '3', enabled: true, trigger: 'auto' },
-        { id: 'A2', name: 'pair', kind: 'input', source: '1', enabled: true, trigger: 'auto' },
+        { id: 'A1', name: 'steps', kind: 'input', source: '3', enabled: true },
+        { id: 'A2', name: 'pair', kind: 'input', source: '1', enabled: true },
         {
           id: 'B1',
           name: 'search',
           kind: 'formula',
           source: 'low, high, steps = 0, 9, []\nfor index, pair in enumerate(steps):\n    pass\nsteps',
           enabled: true,
-          trigger: 'auto',
         },
       ]),
     );
@@ -424,7 +404,7 @@ describe('PEP 723 script metadata', () => {
 
 describe('return in cells', () => {
   const formula = (id: string, source: string) =>
-    ({ id, kind: 'formula', source, enabled: true, trigger: 'auto' }) as CellDefinition;
+    ({ id, kind: 'formula', source, enabled: true }) as CellDefinition;
   const written = (source: string) =>
     serializeSheetDocument(createSheetDocument('Returns', 4, 4, [formula('A1', source)]));
 
@@ -443,7 +423,7 @@ describe('return in cells', () => {
 
 describe('duplicateSheet', () => {
   const cell = (id: string, kind: string, source: string, name?: string) =>
-    ({ id, kind, source, name, enabled: true, trigger: 'auto' }) as CellDefinition;
+    ({ id, kind, source, name, enabled: true }) as CellDefinition;
 
   it('makes the label suffix from the sheet name', () => {
     expect(labelSuffix('ScenarioB')).toBe('scenario_b');
@@ -492,7 +472,7 @@ describe('duplicateSheet', () => {
 
 describe('copying cells', () => {
   const cell = (id: string, kind: string, source: string, name?: string) =>
-    ({ id, kind, source, name, enabled: true, trigger: 'auto' }) as CellDefinition;
+    ({ id, kind, source, name, enabled: true }) as CellDefinition;
 
   it('puts cells on the clipboard as a small .sheet.py, recognisable when pasted', () => {
     const text = copiedCellsSource([cell('Budget!C3', 'input', '12', 'price'), cell('Budget!D4', 'formula', 'price * 2', 'twice')]);
@@ -524,9 +504,9 @@ describe('type hints', () => {
   it('writes a formula hint as the return annotation; other kinds have none', () => {
     const source = serializeSheetDocument(
       createSheetDocument('Typed', 4, 4, [
-        { id: 'A1', kind: 'input', source: '2', name: 'n', enabled: true, trigger: 'auto', annotation: 'int' },
-        { id: 'A2', kind: 'formula', source: 'n * 1.5', name: 'half', enabled: true, trigger: 'auto', annotation: '  float ' },
-        { id: 'A3', kind: 'effect', source: 'print(n)', enabled: true, trigger: 'auto', annotation: 'None' },
+        { id: 'A1', kind: 'input', source: '2', name: 'n', enabled: true, annotation: 'int' },
+        { id: 'A2', kind: 'formula', source: 'n * 1.5', name: 'half', enabled: true, annotation: '  float ' },
+        { id: 'A3', kind: 'effect', source: 'print(n)', enabled: true, annotation: 'None' },
       ]),
     );
     expect(source).toContain('def half(self) -> float:');
@@ -538,7 +518,7 @@ describe('type hints', () => {
 
 describe('sheet-local label renaming', () => {
   it('rewrites only references to the renamed cell, including explicitly qualified references', () => {
-    const cell = (id: string, source: string, name?: string): CellDefinition => ({ id, kind: 'formula', source, name, enabled: true, trigger: 'auto' });
+    const cell = (id: string, source: string, name?: string): CellDefinition => ({ id, kind: 'formula', source, name, enabled: true });
     const renamed = renameCell([
       cell('A1', '10', 'amount'),
       cell('Budget!A1', '20', 'amount'),
@@ -552,14 +532,14 @@ describe('sheet-local label renaming', () => {
 });
 
 it('rewrites widget setting expressions on label rename and copy', () => {
-  const cell = (id: string, kind: CellDefinition['kind'], source: string, name: string): CellDefinition => ({ id, kind, source, name, enabled: true, trigger: 'auto' });
+  const cell = (id: string, kind: CellDefinition['kind'], source: string, name: string): CellDefinition => ({ id, kind, source, name, enabled: true });
   const inputs = [cell('A1', 'input', '10', 'limit'), { ...cell('A2', 'input', '2', 'amount'), view: { widget: { type: 'range' as const, max: 'limit * 2' } } }];
   expect(renameCell(inputs, 'A1', 'upper')[1].view?.widget?.max).toBe('upper * 2');
   expect(relabelCells(inputs, new Map([['limit', 'limit_copy']]))[1].view?.widget?.max).toBe('limit_copy * 2');
 });
 
 it('writes reactive dropdown and multiselect options as Python callbacks', () => {
-  const cell = (id: string, kind: CellDefinition['kind'], source: string, name: string): CellDefinition => ({ id, kind, source, name, enabled: true, trigger: 'auto' });
+  const cell = (id: string, kind: CellDefinition['kind'], source: string, name: string): CellDefinition => ({ id, kind, source, name, enabled: true });
   const cells: CellDefinition[] = [
     { ...cell('A1', 'input', '["one", "two"]', 'choices') },
     { ...cell('A2', 'input', '"one"', 'single'), view: { widget: { type: 'select', options: 'choices + ["other"]' } } },
@@ -574,9 +554,9 @@ it('writes reactive dropdown and multiselect options as Python callbacks', () =>
 describe('resource parameter code', () => {
   it('snapshots simple loader reads and preserves explicit parameter bodies', () => {
     const cells: CellDefinition[] = [
-      {id:'A1', name:'amount', kind:'input', source:'3', enabled:true, trigger:'auto'},
-      {id:'B1', kind:'resource', source:'await asyncio.sleep(0)\nreturn amount * 2', enabled:true, trigger:'auto'},
-      {id:'B2', kind:'resource', source:'return params["amount"]', params:'# Request\n{"amount": amount}', enabled:true, trigger:'auto'},
+      {id:'A1', name:'amount', kind:'input', source:'3', enabled:true},
+      {id:'B1', kind:'resource', source:'await asyncio.sleep(0)\nreturn amount * 2', enabled:true},
+      {id:'B2', kind:'resource', source:'return params["amount"]', params:'# Request\n{"amount": amount}', enabled:true},
     ];
     const text = serializeSheetDocument(createSheetDocument('Resources', 4, 4, cells));
     expect(text).toContain('resource_mode="simple"');
@@ -595,8 +575,8 @@ describe('resource parameter code', () => {
 
 describe('reactive widget presentation', () => {
   it('writes Python callbacks and rewrites only expressions in widget labels and state', () => {
-    const cells: CellDefinition[]=[{id:'A1',name:'ready',kind:'input',source:'True',enabled:true,trigger:'auto'},
-      {id:'B1',kind:'input',source:'0',enabled:true,trigger:'auto',view:{widget:{type:'button',label:{expr:'"Run" if ready else "Wait"'},disabled:{expr:'not ready'},placeholder:'ready is literal'}}}];
+    const cells: CellDefinition[]=[{id:'A1',name:'ready',kind:'input',source:'True',enabled:true},
+      {id:'B1',kind:'input',source:'0',enabled:true,view:{widget:{type:'button',label:{expr:'"Run" if ready else "Wait"'},disabled:{expr:'not ready'},placeholder:'ready is literal'}}}];
     const text=serializeSheetDocument(createSheetDocument('States',3,3,cells));
     expect(text).toContain('"label": lambda self: "Run" if self.ready() else "Wait"');
     expect(text).toContain('"disabled": lambda self: not self.ready()');
@@ -612,9 +592,9 @@ describe('reactive widget presentation', () => {
 describe('linked previous-state computations', () => {
   it('saves both stages and rewrites cell references without touching callback locals', () => {
     const cells: CellDefinition[] = [
-      {id: 'A1', kind: 'input', source: '10', name: 'limit', enabled: true, trigger: 'auto'},
-      {id: 'A2', kind: 'input', source: '99', name: 'source', enabled: true, trigger: 'auto'},
-      {id: 'B1', kind: 'linked', source: 'limit', computation: 'min(source, limit, previous.value) if previous is not None else source', enabled: true, trigger: 'auto'},
+      {id: 'A1', kind: 'input', source: '10', name: 'limit', enabled: true},
+      {id: 'A2', kind: 'input', source: '99', name: 'source', enabled: true},
+      {id: 'B1', kind: 'linked', source: 'limit', computation: 'min(source, limit, previous.value) if previous is not None else source', enabled: true},
     ];
     const renamed = renameCell(cells, 'A1', 'maximum');
     expect(renamed[2].source).toBe('maximum');
@@ -630,7 +610,7 @@ describe('linked previous-state computations', () => {
 });
 
 it('keeps linked callback locals when duplicating a sheet with the same name', () => {
-  const cells: CellDefinition[] = [{id: 'A1', kind: 'linked', source: '10', computation: 'source.real if previous is None else previous.value', enabled: true, trigger: 'auto'}];
+  const cells: CellDefinition[] = [{id: 'A1', kind: 'linked', source: '10', computation: 'source.real if previous is None else previous.value', enabled: true}];
   const copied = duplicateSheet(cells, {prefix: '', name: 'source'}, {prefix: 'Copy', name: 'Copy'}, ['source', 'Copy']);
   expect(copied.copies[0].computation).toBe(cells[0].computation);
 });
@@ -657,7 +637,7 @@ it('counts only used action reference aliases when protecting sheet deletion', a
 
 describe('atomic label refactoring', () => {
   const cell = (id: string, source: string, kind: 'input' | 'formula' | 'markdown' = 'formula'): CellDefinition =>
-    ({id, source, kind, enabled: true, trigger: 'auto'});
+    ({id, source, kind, enabled: true});
   it('assigns and removes labels across code, notes, widget expressions and actions', () => {
     const document = createSheetDocument('Labels', 10, 16, [cell('A1', '10', 'input'),
       cell('B1', 'A1 + cells.A1() + Other.A1'),
@@ -691,7 +671,7 @@ describe('atomic label refactoring', () => {
 
 it('refuses action label rewrites with shadowed self receivers', () => {
   const document = createSheetDocument('Labels', 10, 16, [
-    {id:'A1',kind:'input',source:'1',enabled:true,trigger:'auto',name:'count'}]);
+    {id:'A1',kind:'input',source:'1',enabled:true,name:'count'}]);
   document.actions = [{name:'adjust',source:'def adjust(self):\n    def helper(self):\n        return self.count()\n    return self.count()',
     references:{count:'A1'},bindings:{},label:'',exposed:true}];
   expect(() => refactorCellLabel(document,'A1','total')).toThrow('shadows self');
@@ -703,8 +683,8 @@ it('refuses action label rewrites with shadowed self receivers', () => {
 
 it('rewrites reactive color references on labels and copied sheets without rewriting fixed colors', () => {
   const cells: CellDefinition[] = [
-    {id: 'A1', name: 'status_color', kind: 'input', source: "'#123456'", enabled: true, trigger: 'auto'},
-    {id: 'B1', kind: 'input', source: '1', enabled: true, trigger: 'auto', color: '#eeeeee', view: {color: {expr: 'status_color'}}},
+    {id: 'A1', name: 'status_color', kind: 'input', source: "'#123456'", enabled: true},
+    {id: 'B1', kind: 'input', source: '1', enabled: true, color: '#eeeeee', view: {color: {expr: 'status_color'}}},
   ];
   expect(renameCell(cells, 'A1', 'warning_color')[1].view?.color?.expr).toBe('warning_color');
   const copies = duplicateSheet(cells, {prefix: '', name: 'Main'}, {prefix: 'Copy', name: 'Copy'}, ['Main', 'Copy']).copies;
@@ -721,9 +701,9 @@ describe('action spelling self.workbook.Sheet.member', () => {
     expect(canonical).toContain('# self.workbook.PLC.x stays in comments');
     expect(canonical).toContain('return "self.workbook.PLC.x"');
     const document = createSheetDocument('Spelling', 3, 3, [
-      { id: 'A1', kind: 'input', source: '0', enabled: true, trigger: 'auto' },
-      { id: 'PLC!A1', kind: 'input', source: '1', name: 'x', enabled: true, trigger: 'auto' },
-      { id: 'Out!A1', kind: 'input', source: '0', name: 'x', enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'input', source: '0', enabled: true },
+      { id: 'PLC!A1', kind: 'input', source: '1', name: 'x', enabled: true },
+      { id: 'Out!A1', kind: 'input', source: '0', name: 'x', enabled: true },
     ], [], undefined, {}, [], undefined, {
       sheets: [{ name: 'PLC', grid: { columns: 3, rows: 3 }, layout: { columnWidths: {}, rowHeights: {} } },
         { name: 'Out', grid: { columns: 3, rows: 3 }, layout: { columnWidths: {}, rowHeights: {} } }],

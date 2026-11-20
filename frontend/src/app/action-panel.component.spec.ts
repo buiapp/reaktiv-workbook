@@ -61,7 +61,7 @@ describe('explicit model actions', () => {
       'Actions',
       4,
       8,
-      [{ id: 'A1', kind: 'input', source: '1', name: 'quantity', enabled: true, trigger: 'auto' }],
+      [{ id: 'A1', kind: 'input', source: '1', name: 'quantity', enabled: true }],
       [],
       undefined,
       {},

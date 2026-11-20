@@ -101,8 +101,8 @@ response.json()[: params["limit"]]
 ## Effects
 
 An effect runs when a cell it mentions changes: send an alert, write a file, log a
-result. Make effects that do something irreversible **manual** (they then run only from
-the cell panel or a button), or guard them with a checkbox input.
+result. Guard effects that do something irreversible with a checkbox input, or make them
+an [action](actions.md), which runs only when someone chooses to.
 
 Effects can change inputs:
 

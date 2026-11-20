@@ -32,7 +32,7 @@ class Sheet1Worksheet(Worksheet["EmptyCellBodiesWorkbook"]):
         # Not implemented yet
         pass  # reaktiv: empty cell
 
-    @cell("C1", enabled=True, trigger="auto")
+    @cell("C1", enabled=True)
     @effect
     def c1(self):
         # No side effects yet
@@ -59,7 +59,7 @@ class Sheet1Worksheet(Worksheet["EmptyCellBodiesWorkbook"]):
         # Linked placeholder
         pass  # reaktiv: empty cell
 
-    @cell("C2", enabled=True, trigger="auto")
+    @cell("C2", enabled=True)
     @effect
     def c2(self):
         pass  # reaktiv: empty cell

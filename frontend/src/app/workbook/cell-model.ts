@@ -23,7 +23,6 @@ export function sameCell(left: CellDefinition, right: CellDefinition): boolean {
     (left.saveValue ?? true) === (right.saveValue ?? true) &&
     left.name === right.name &&
     left.enabled === right.enabled &&
-    left.trigger === right.trigger &&
     (left.color ?? '') === (right.color ?? '') &&
     (left.view?.color?.expr ?? '') === (right.view?.color?.expr ?? '') &&
     (left.equal ?? '') === (right.equal ?? '') &&
@@ -45,8 +44,7 @@ export function sameComputation(left: CellDefinition, right: CellDefinition): bo
     left.computation === right.computation &&
     left.override === right.override &&
     left.name === right.name &&
-    left.enabled === right.enabled &&
-    left.trigger === right.trigger
+    left.enabled === right.enabled
   );
 }
 

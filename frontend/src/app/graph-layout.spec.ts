@@ -6,7 +6,6 @@ const cell = (id: string, kind: CellKind = 'formula'): CellDefinition => ({
   kind,
   source: '',
   enabled: true,
-  trigger: 'auto',
 });
 
 // A1, A2 → B1 → C1 → D1; note N1 reads everything; Budget!A1 is unrelated.

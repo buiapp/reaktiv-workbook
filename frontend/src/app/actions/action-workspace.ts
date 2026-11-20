@@ -21,7 +21,6 @@ export interface ActionWorkspacePorts {
   acceptLiveGraph(graph: GraphResult): void;
   flash(ids: ReadonlySet<string>): void;
   settle(): void;
-  runEffect(cellId: string): Promise<void>;
 }
 
 /** Action editing/running lifecycle; independent of menus, DOM and note layout. */
@@ -140,35 +139,32 @@ export class ActionWorkspace {
     this.lastInvokedAction.set(event.name);
     this.actionError.set('');
     try {
-      if (event.name.startsWith('effect:')) await this.ports.runEffect(event.name.slice(7));
-      else {
-        const graph = await this.ports.commands.start(async () => {
-          check?.();
-          const unsubscribe = this.listenSnapshots(generation);
-          try {
-            const result = await this.ports.runtime.runAction(event.name, event.arguments, runId);
-            if (generation !== this.ports.commands.generation) return;
-            this.ports.acceptGraph(result);
-            return result;
-          } finally {
-            unsubscribe();
-          }
+      const graph = await this.ports.commands.start(async () => {
+        check?.();
+        const unsubscribe = this.listenSnapshots(generation);
+        try {
+          const result = await this.ports.runtime.runAction(event.name, event.arguments, runId);
+          if (generation !== this.ports.commands.generation) return;
+          this.ports.acceptGraph(result);
+          return result;
+        } finally {
+          unsubscribe();
+        }
+      });
+      if (!graph) return;
+      const action = graph.actions?.find(item => item.name === event.name);
+      const receipt: ActionInvocation | undefined = action?.runs?.find(run => run.id === runId) ?? (action ? {
+        id: runId, name: event.name, status: action.cancelled ? 'cancelled' : action.error ? 'failed' : 'succeeded',
+        error: action.cancelled ? 'Action cancelled' : action.error, output: action.output,
+      } : undefined);
+      const feedback = this.widgetActionFeedback();
+      if (feedback?.name === event.name)
+        this.widgetActionFeedback.set({
+          ...feedback,
+          error: receipt?.error ?? '',
         });
-        if (!graph) return;
-        const action = graph.actions?.find(item => item.name === event.name);
-        const receipt: ActionInvocation | undefined = action?.runs?.find(run => run.id === runId) ?? (action ? {
-          id: runId, name: event.name, status: action.cancelled ? 'cancelled' : action.error ? 'failed' : 'succeeded',
-          error: action.cancelled ? 'Action cancelled' : action.error, output: action.output,
-        } : undefined);
-        const feedback = this.widgetActionFeedback();
-        if (feedback?.name === event.name)
-          this.widgetActionFeedback.set({
-            ...feedback,
-            error: receipt?.error ?? '',
-          });
-        this.ports.flash(affectedCellIds(graph.changed, graph.dependencies));
-        return receipt;
-      }
+      this.ports.flash(affectedCellIds(graph.changed, graph.dependencies));
+      return receipt;
     } catch (error) {
       if (generation !== this.ports.commands.generation) return;
       this.actionError.set(pythonErrorMessage(error));

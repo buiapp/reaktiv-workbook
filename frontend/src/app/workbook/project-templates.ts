@@ -11,7 +11,6 @@ export function newProjectCells(name: string, template: NewProjectTemplate): Cel
         kind: 'input',
         source: '100',
         enabled: true,
-        trigger: 'auto',
       },
       {
         id: 'A2',
@@ -19,7 +18,6 @@ export function newProjectCells(name: string, template: NewProjectTemplate): Cel
         kind: 'formula',
         source: 'amount * 2',
         enabled: true,
-        trigger: 'auto',
       },
       {
         id: 'B1',
@@ -27,7 +25,6 @@ export function newProjectCells(name: string, template: NewProjectTemplate): Cel
         kind: 'markdown',
         source: `# ${name}\n\nThe current amount is **{{ amount }}** and the calculated value is **{{ doubled }}**.`,
         enabled: true,
-        trigger: 'auto',
       },
     ];
   }
@@ -37,7 +34,6 @@ export function newProjectCells(name: string, template: NewProjectTemplate): Cel
       kind: 'markdown',
       source: `# ${name}\n\nStart writing. Type \`/\` to insert a block or add reactive cells in the Cells view.`,
       enabled: true,
-      trigger: 'auto',
     },
   ];
 }

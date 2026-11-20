@@ -16,7 +16,6 @@ const cells: CellDefinition[] = [
     kind: 'input',
     source: '[' + '255,'.repeat(250000) + '255]',
     enabled: true,
-    trigger: 'auto',
   },
 ];
 const document: SheetDocument = {

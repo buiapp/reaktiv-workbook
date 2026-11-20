@@ -41,7 +41,7 @@ def typed_document(case):
 
 
 def cell_view(document):
-    return {cell.id: (cell.kind, cell.name, cell.enabled, cell.trigger, cell.annotation, cell.source) for cell in document.cells}
+    return {cell.id: (cell.kind, cell.name, cell.enabled, cell.annotation, cell.source) for cell in document.cells}
 
 
 def results(document):
@@ -64,8 +64,8 @@ def test_saved_workbooks_open_with_every_cell_as_typed(case, writer):
     typed = typed_document(case)
     expected = cell_view(typed)
     for cell_id, source in case.get("loads", {}).items():
-        kind, name, enabled, trigger, annotation, _ = expected[cell_id]
-        expected[cell_id] = (kind, name, enabled, trigger, annotation, source)
+        kind, name, enabled, annotation, _ = expected[cell_id]
+        expected[cell_id] = (kind, name, enabled, annotation, source)
 
     loaded = SheetDocument.loads(written_files(case)[writer])
 

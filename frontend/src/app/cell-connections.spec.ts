@@ -51,7 +51,6 @@ describe('cell connection geometry', () => {
     source: '1',
     kind: 'input',
     enabled: true,
-    trigger: 'auto',
     view: span ? { span } : undefined,
   });
   it('respects resized tracks, spanning tiles and qualified sheet coordinates', () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assertCellPlacements, assertChangedCellPlacements } from './cell-placement';
 import type { CellDefinition } from './sheet.types';
-const cell = (id: string, span?: [number, number]): CellDefinition => ({ id, kind: 'input', source: '1', enabled: true, trigger: 'auto', ...(span ? { view: { span } } : {}) });
+const cell = (id: string, span?: [number, number]): CellDefinition => ({ id, kind: 'input', source: '1', enabled: true, ...(span ? { view: { span } } : {}) });
 
 describe('cell placement footprints', () => {
   it('rejects anchors inside a tile, tile edges over anchors, and tile-to-tile intersections', () => {

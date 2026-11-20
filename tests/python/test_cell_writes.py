@@ -62,17 +62,18 @@ def test_invalid_writes_and_failed_effects_do_not_change_inputs():
     w.close()
 
 
-def test_linked_override_and_reset_with_manual_effects():
+def test_linked_override_and_reset_from_effects():
     w = ReactiveWorkbook()
-    s = w.apply(
+    w.apply(
         [
             CellDefinition("A1", "input", "10", name="base"),
             CellDefinition("B1", "linked", "base * 2", name="price"),
-            CellDefinition("C1", "effect", "cells.price.set(7)", trigger="manual"),
-            CellDefinition("D1", "effect", "cells.price.reset()", trigger="manual"),
+            CellDefinition("C1", "effect", "cells.price.set(7)"),
+            CellDefinition("D1", "effect", "cells.price.reset()"),
         ]
     )
-    assert value(s, "B1") == 20
+    # Both ran once on apply; running them again (Run effect) sets and resets the override.
+    assert value(w.run_effect("D1"), "B1") == 20
     assert value(w.run_effect("C1"), "B1") == 7
     assert next(c.override for c in w.document.cells if c.id == "B1") == "7"
     assert value(w.run_effect("D1"), "B1") == 20
@@ -180,7 +181,6 @@ def test_numpy_scalars_and_read_your_writes_use_literal_values():
                 "C1",
                 "effect",
                 "cells.count.set(np.int64(4))\ncells.observed.set(cells.count.get())",
-                trigger="manual",
             ),
         ]
     )
@@ -256,7 +256,7 @@ def test_generated_workbook_handles_execute_outside_the_app():
     assert model.Sheet1.counter() == 5
     assert model.Sheet1.price() == 7
     assert model.Sheet1.b2() == 12
-    model.Sheet1.d1
+    model.Sheet1.reset_price.set(True)  # D1 resets the linked price
     assert model.Sheet1.price() == 10
     model.dispose()
 
@@ -275,6 +275,6 @@ def test_native_reset_uses_the_original_derivation_of_a_saved_override():
     exec(compile(source, str(fixture), "exec"), namespace)
     model = namespace["EffectInputWritesWorkbook"]()
     assert model.Sheet1.price() == 7
-    model.Sheet1.d1
+    model.Sheet1.reset_price.set(True)  # D1 resets the linked price
     assert model.Sheet1.price() == 10
     model.dispose()

@@ -169,7 +169,7 @@ async def cancel_resource(runtime: RuntimeDep, request: CellRequest) -> JSONResp
     return _run(runtime, '/v1/cancel-resource', request)
 
 
-@workbook.post("/run-effect", summary="Run a manual effect", responses={200: GRAPH})
+@workbook.post("/run-effect", summary="Run an effect now", responses={200: GRAPH})
 def run_effect(runtime: RuntimeDep, request: CellRequest) -> JSONResponse:
     return _run(runtime, "/v1/run-effect", request)
 

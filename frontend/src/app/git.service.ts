@@ -101,7 +101,7 @@ export interface CellChange {
   change: 'added' | 'removed' | 'changed' | 'moved';
   /** Where a moved cell was. */
   from?: string;
-  /** What else changed: kind, label, trigger, on/off. */
+  /** What else changed: kind, label, on/off. */
   details: string[];
   lines: DiffLine[];
 }
@@ -163,7 +163,6 @@ function compareCells(before: CellDefinition, after: CellDefinition): CellChange
   const details: string[] = [];
   if (before.kind !== after.kind) details.push(`${before.kind} → ${after.kind}`);
   if ((before.name ?? '') !== (after.name ?? '')) details.push(`label ${before.name || '—'} → ${after.name || '—'}`);
-  if (before.trigger !== after.trigger) details.push(`trigger ${before.trigger} → ${after.trigger}`);
   if (before.enabled !== after.enabled) details.push(after.enabled ? 'turned on' : 'turned off');
   if (before.override !== after.override) details.push(`override ${(before.override ?? 'derived').slice(0, 80)} → ${(after.override ?? 'derived').slice(0, 80)}`);
   const sourceChanged = before.source !== after.source;

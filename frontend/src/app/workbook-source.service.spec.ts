@@ -105,7 +105,6 @@ describe('Python workbook source service', () => {
         kind: 'input',
         source: '1'.repeat(4 * 1024 * 1024),
         enabled: true,
-        trigger: 'auto',
       },
     ]);
     const pending = service.serialize(doc);

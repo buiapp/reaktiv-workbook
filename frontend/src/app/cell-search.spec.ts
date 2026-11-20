@@ -1,9 +1,9 @@
 import { searchCells } from './cell-search';
 import type { CellDefinition } from './sheet.types';
 const cells: CellDefinition[] = [
-  {id: 'A1', name: 'rate', kind: 'input', source: '2', enabled: true, trigger: 'auto'},
-  {id: 'Budget!A1', name: 'rate', kind: 'formula', source: '# forecasting\nnp.mean(samples) * rate', enabled: true, trigger: 'auto'},
-  {id: 'B2', name: 'average', kind: 'formula', source: 'np.mean(samples)', enabled: true, trigger: 'auto'},
+  {id: 'A1', name: 'rate', kind: 'input', source: '2', enabled: true},
+  {id: 'Budget!A1', name: 'rate', kind: 'formula', source: '# forecasting\nnp.mean(samples) * rate', enabled: true},
+  {id: 'B2', name: 'average', kind: 'formula', source: 'np.mean(samples)', enabled: true},
 ];
 describe('Cell search', () => {
   it('finds duplicated labels across sheets, exact coordinates and code keywords', () => {

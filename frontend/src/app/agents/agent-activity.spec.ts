@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AgentActivity } from './agent-activity';
 import type { AgentCommand } from './live-agent-workbook';
 import type { CellDefinition } from '../sheet.types';
-const cell = (id: string, source = '1'): CellDefinition => ({id, source, kind: 'input', enabled: true, trigger: 'auto'});
+const cell = (id: string, source = '1'): CellDefinition => ({id, source, kind: 'input', enabled: true});
 const command = (operation: AgentCommand['operation'], payload: Record<string, unknown> = {}): AgentCommand =>
   ({id: crypto.randomUUID(), operation, payload, expiresAt: Date.now() + 60000});
 

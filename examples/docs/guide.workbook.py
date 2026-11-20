@@ -176,7 +176,7 @@ class StartWorksheet(Worksheet["ReaktivWorkbookGuideWorkbook"]):
         `lambda previous, current: abs(previous - current) < 0.01` ignores tiny numeric changes.
         Return True to keep the previous value and skip dependent updates, or False to update.
         Click **Apply** to save the setting with the cell. Inputs, linked inputs, formulas,
-        resources and notes support equality; effects use triggers. Comparisons do not track
+        resources and notes support equality. Comparisons do not track
         reactive dependencies.
 
 

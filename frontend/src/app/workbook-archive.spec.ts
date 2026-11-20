@@ -9,7 +9,7 @@ describe('browser workbook archives', () => {
   it('round-trips Python, snapshot, and deduplicated image files without embedding image bytes in source', async () => {
     const store = new AssetStore();
     const reference = await store.add(dataUrlToBlob(PNG));
-    const cells = [{ id: 'A1', kind: 'markdown' as const, source: `![x](${reference})\n![again](${reference})`, enabled: true, trigger: 'auto' as const }];
+    const cells = [{ id: 'A1', kind: 'markdown' as const, source: `![x](${reference})\n![again](${reference})`, enabled: true }];
     const assets = await store.filesForDownload(cells);
     const source = `# Example\n${cells[0].source}`;
     const outputs = JSON.stringify({ cells: [{ display: cells[0].source }] });
@@ -39,7 +39,7 @@ describe('browser workbook archives', () => {
   it('refuses to download a workbook with missing image files', async () => {
     const store = new AssetStore();
     await expect(store.filesForDownload([
-      { id: 'A1', kind: 'markdown', source: '![lost](assets/ffffffffffffffff.png)', enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'markdown', source: '![lost](assets/ffffffffffffffff.png)', enabled: true },
     ])).rejects.toThrow('assets/ffffffffffffffff.png is missing');
   });
 

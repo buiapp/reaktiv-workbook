@@ -19,7 +19,7 @@ export function updateExplanation(row:CellUpdateObservation,kind?:string):string
       : row.changedDependencies.length
         ? 'No execution was observed despite a changed dependency. Check stopped cells, resource parameters, or manual execution rules.'
         : 'Did not execute; its observed dependencies published no changed values in this update.';
-    case 'not-run':return 'The effect did not execute in this update. Check automatic/manual trigger, enabled state and stopped cells.';
+    case 'not-run':return 'The effect did not execute in this update. Check that it is switched on, that a cell it reads changed, and stopped cells.';
     case 'unaffected':return kind === 'input' ? 'No input write or initialization was observed. Input initializers do not subscribe to future dependency changes.' : 'No execution or published change was observed, and no path from this update reached this cell through observed dependencies. Unused branches and untracked reads do not establish live dependencies.';
     case 'failed':return 'The cell has an error. See the error details; this may be a retained error from an earlier evaluation.';
     case 'waiting':return 'The resource is idle or waiting for a result. Loader execution and parameter checks are different stages.';

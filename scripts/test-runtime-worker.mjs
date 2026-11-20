@@ -63,7 +63,6 @@ const cell = (id, kind, source, extra = {}) => ({
   kind,
   source,
   enabled: true,
-  trigger: 'auto',
   ...extra,
 });
 await request('initialize');
@@ -149,12 +148,12 @@ assert.equal(value(relocated.graph, 'A1'), 1);
 
 const traced = await request('apply', {
   enableUpdateTracing: true,
-  cells: [{ id: 'A1', kind: 'input', source: '1', enabled: true, trigger: 'auto' }],
+  cells: [{ id: 'A1', kind: 'input', source: '1', enabled: true }],
 });
 assert.ok(traced.updateTrace.cells.A1);
 const untraced = await request('apply', {
   enableUpdateTracing: false,
-  cells: [{ id: 'A1', kind: 'input', source: '2', enabled: true, trigger: 'auto' }],
+  cells: [{ id: 'A1', kind: 'input', source: '2', enabled: true }],
 });
 assert.equal(untraced.updateTrace, undefined);
 

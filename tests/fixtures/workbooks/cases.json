@@ -83,8 +83,7 @@
         {
           "id": "C1",
           "kind": "effect",
-          "source": "print(f\"net: {net}\")",
-          "trigger": "manual"
+          "source": "print(f\"net: {net}\")"
         },
         {
           "id": "D1",
@@ -583,8 +582,13 @@
         {
           "id": "D1",
           "kind": "effect",
-          "trigger": "manual",
-          "source": "cells.price.reset()"
+          "source": "if reset_price:\n    cells.price.reset()"
+        },
+        {
+          "id": "E1",
+          "kind": "input",
+          "source": "False",
+          "name": "reset_price"
         }
       ]
     },

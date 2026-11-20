@@ -35,7 +35,20 @@ FORMAT_VERSION = 4
 # First-sheet cells are plain coordinates; other sheets prefix them: "Budget!A1".
 CELL_ID = re.compile(r"^(?:[A-Za-z_][A-Za-z0-9_]*!)?[A-Z]+[1-9][0-9]*$")
 CELL_KINDS = frozenset({"input", "linked", "formula", "resource", "markdown", "effect"})
-EFFECT_TRIGGERS = frozenset({"auto", "manual"})
+# Older workbooks write ``trigger="auto"`` on every effect; it is accepted and dropped.
+# Manual effects were removed in favour of actions, and are refused rather than run.
+MANUAL_EFFECTS_REMOVED = (
+    'Manual effects were removed: move the code of effect {cell} into an action '
+    '(Actions → New action), or delete trigger="manual" to run it automatically'
+)
+
+
+def check_effect_trigger(trigger: object, cell_id: str) -> None:
+    """Accept the legacy ``trigger="auto"``; refuse manual effects with what to do instead."""
+    if trigger == "manual":
+        raise ValueError(MANUAL_EFFECTS_REMOVED.format(cell=cell_id))
+    if trigger != "auto":
+        raise ValueError(f"Invalid effect trigger for {cell_id}: {trigger!r}")
 MARKDOWN_INTERPOLATION = re.compile(r"\{\{(.*?)\}\}", re.DOTALL)
 MARKDOWN_CELL_LINK = re.compile(
     r"(?P<prefix>#(?:sheet-input:|cell-|note-))(?P<cell>(?:[A-Za-z_][A-Za-z0-9_]*!)?[A-Z]+[1-9][0-9]*)(?=[?)\s#'\">]|$)"
@@ -51,7 +64,6 @@ class CellDefinition:
     kind: str
     source: str
     enabled: bool = True
-    trigger: str = "auto"
     name: str = ""
     color: str = ""
     # Dashboard presentation in the grid, e.g. {"display": "rendered", "span": [2, 2],
@@ -82,8 +94,6 @@ class CellDefinition:
             raise ValueError("save_value=False applies only to input cells")
         if not isinstance(self.enabled, bool):
             raise TypeError(f"Cell {self.id} enabled must be a boolean")
-        if self.trigger not in EFFECT_TRIGGERS:
-            raise ValueError(f"Invalid effect trigger for {self.id}: {self.trigger!r}")
         if self.name == 'cells':
             raise ValueError('The label cells is reserved for the cell-reference namespace')
         if self.name and (not self.name.isidentifier() or keyword.iskeyword(self.name)):
@@ -111,7 +121,7 @@ class CellDefinition:
         kind = value.get("kind")
         source = value.get("source")
         enabled = value.get("enabled", True)
-        trigger = value.get("trigger", "auto")
+        check_effect_trigger(value.get("trigger", "auto"), str(cell_id))
         name = value.get("name", "")
         color = value.get("color", "")
         view = value.get("view")
@@ -128,7 +138,7 @@ class CellDefinition:
             raise TypeError(f"Cell {cell_id} color must be a string")
         if not isinstance(annotation, str):
             raise TypeError(f"Cell {cell_id} type hint must be a string")
-        return cls(cell_id, kind, source, enabled, trigger, name, color, view, annotation, value.get("override"), value.get("equal", ""), value.get("params"), value.get("computation"), value.get("saveValue", True))
+        return cls(cell_id, kind, source, enabled, name, color, view, annotation, value.get("override"), value.get("equal", ""), value.get("params"), value.get("computation"), value.get("saveValue", True))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -136,7 +146,6 @@ class CellDefinition:
             "kind": self.kind,
             "source": self.source,
             "enabled": self.enabled,
-            "trigger": self.trigger,
             "name": self.name,
             "color": self.color,
             **({"view": self.view} if self.view else {}),
@@ -291,8 +300,8 @@ def normalize_cells(cells: Iterable[CellLike]) -> tuple[CellDefinition, ...]:
                     f"Duplicate cell label {cell.name!r}: {previous} and {cell.id}"
                 )
             names[key] = cell.id
-        if cell.kind != "effect" and (not cell.enabled or cell.trigger != "auto"):
-            cell = replace(cell, enabled=True, trigger="auto")
+        if cell.kind != "effect" and not cell.enabled:
+            cell = replace(cell, enabled=True)
         normalized[cell.id] = cell
     return tuple(sorted(normalized.values(), key=lambda cell: _cell_sort_key(cell.id)))
 
@@ -326,7 +335,7 @@ def verify_written_document(source: str, expected: Mapping[str, Any]) -> list[st
             continue
         for attribute, description in (
             ("save_value", "input value persistence"), ("kind", "kind"), ("source", "code"), ("name", "label"), ("enabled", "on/off state"),
-            ("trigger", "trigger"), ("color", "colour"), ("view", "display settings"),
+            ("color", "colour"), ("view", "display settings"),
             ("equal", "equality function"), ("params", "resource parameters"), ("computation", "linked computation"), ("annotation", "type hint"), ("override", "linked input override"),
         ):
             if getattr(cell, attribute) != getattr(other, attribute):
@@ -1262,7 +1271,7 @@ def load_legacy_model_document(source: str) -> SheetDocument:
             ):
                 loaders[decorator.value.id] = statement
 
-    declarations: list[tuple[str, str, str, str, bool, str, str, Any, ast.AST]] = []
+    declarations: list[tuple[str, str, str, str, bool, str, Any, ast.AST]] = []
     positions: dict[str, str] = {}
     for statement in model_class.body:
         if isinstance(statement, ast.Assign) and len(statement.targets) == 1:
@@ -1283,7 +1292,6 @@ def load_legacy_model_document(source: str) -> SheetDocument:
                         position,
                         "input",
                         True,
-                        "auto",
                         _literal_keyword(call, "color", ""),
                         call,
                         statement,
@@ -1298,7 +1306,7 @@ def load_legacy_model_document(source: str) -> SheetDocument:
             position = _literal_cell_position(call)
             kind = _composed_cell_kind(statement)
             enabled = _literal_keyword(call, "enabled", True)
-            trigger = _literal_keyword(call, "trigger", "auto")
+            check_effect_trigger(_literal_keyword(call, "trigger", "auto"), position)
             color = _literal_keyword(call, "color", "")
             positions[statement.name] = position
             declaration: ast.AST = statement
@@ -1317,7 +1325,6 @@ def load_legacy_model_document(source: str) -> SheetDocument:
                     position,
                     kind,
                     enabled,
-                    trigger,
                     color,
                     call,
                     declaration,
@@ -1333,7 +1340,6 @@ def load_legacy_model_document(source: str) -> SheetDocument:
         position,
         kind,
         enabled,
-        trigger,
         color,
         view,
         declaration,
@@ -1403,7 +1409,6 @@ def load_legacy_model_document(source: str) -> SheetDocument:
                 kind,
                 source_value,
                 bool(enabled),
-                str(trigger),
                 name,
                 str(color),
                 view,
@@ -1958,12 +1963,7 @@ def _dump_model_cell(
     if not definition.save_value:
         options.append("save_value=False")
     if definition.kind == "effect":
-        options.extend(
-            [
-                f"enabled={definition.enabled}",
-                f'trigger="{definition.trigger}"',
-            ]
-        )
+        options.append(f"enabled={definition.enabled}")
     if definition.color:
         options.append(f'color="{definition.color}"')
     if definition.name:

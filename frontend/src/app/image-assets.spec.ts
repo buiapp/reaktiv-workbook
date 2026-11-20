@@ -62,7 +62,7 @@ describe('note images as files', () => {
   it('moves images embedded in notes into assets', async () => {
     const store = new AssetStore();
     const [cell] = await store.extractEmbedded([
-      { id: 'A1', kind: 'markdown', source: `Before ![x](${PNG}) after`, enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'markdown', source: `Before ![x](${PNG}) after`, enabled: true },
     ]);
     expect(cell.source).toMatch(/^Before !\[x\]\(assets\/[0-9a-f]{16}\.png\) after$/);
     expect(store.replaceEmbedded(`saved output ![x](${PNG})`)).toBe(`saved output ![x](${cell.source.match(/assets\/[^)]+/)![0]})`);
@@ -71,7 +71,7 @@ describe('note images as files', () => {
 
 
 describe('durable note image saves',()=>{
-  const cell=(source:string)=>({id:'A1',kind:'markdown' as const,source,enabled:true,trigger:'auto' as const});
+  const cell=(source:string)=>({id:'A1',kind:'markdown' as const,source,enabled:true});
   it('recovers readable temporary images on save and repairs snapshot references too',async()=>{
     const blob=dataUrlToBlob(PNG), url=URL.createObjectURL(blob), store=new AssetStore();
     // jsdom/undici mix different Blob implementations; provide the browser's response contract.

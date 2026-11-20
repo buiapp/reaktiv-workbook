@@ -220,7 +220,7 @@ class PipelineWorksheet(Worksheet["ScheduledPipelineWorkbook"]):
     def latest(self):
         return self.reading.value()["temperature"]
 
-    @cell("C4", enabled=True, trigger="auto", label="heartbeat")
+    @cell("C4", enabled=True, label="heartbeat")
     @effect
     def heartbeat(self):
         # an effect with its own timer: proof that the pipeline is alive
@@ -242,7 +242,7 @@ class PipelineWorksheet(Worksheet["ScheduledPipelineWorkbook"]):
     def status(self):
         return "HIGH" if self.latest() > self.threshold() else "ok"
 
-    @cell("B8", enabled=True, trigger="auto", label="alert")
+    @cell("B8", enabled=True, label="alert")
     @effect
     def alert(self):
         # act: send a mail, call a webhook, write a file …

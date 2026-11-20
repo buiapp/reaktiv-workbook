@@ -23,7 +23,7 @@ document = SheetDocument(
 document.save("savings.workbook.py")
 ```
 
-`CellDefinition(id, kind, source, name=…, view=…, enabled=…, trigger=…)`. Kinds:
+`CellDefinition(id, kind, source, name=…, view=…, enabled=…)`. Kinds:
 `input`, `linked`, `formula`, `resource`, `effect`, `markdown`.
 
 | `SheetDocument` field | Purpose |

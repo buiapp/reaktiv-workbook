@@ -44,7 +44,8 @@ copy or start a second workbook kernel. A workbook is saved as a `.workbook.py` 
   explicit `params` is synchronous parameter code and the async source consumes
   captured parameters. Preserve the existing mode; do not read live cells across
   awaits or introduce effects in parameter code. Inspect an existing example first.
-- `effect`: automatically triggered side effects, or manual when `trigger='manual'`.
+- `effect`: side effects that run when the cells they read change. For work a user
+  starts on purpose, create an action.
   Prefer a formula for derived values and an action for user-requested operations.
 - `markdown`: Markdown text, either a worksheet label/heading/text cell or a note
   page. For grid labels/text ALWAYS use `view: {"page": false, "display": "rendered"}`.
@@ -62,7 +63,7 @@ cell source. Cells may use installed packages; inspect the workbook environment
 first. Function helpers belong in function cells; preserve comments and settings.
 
 Use edit_cells for create/replace/delete batches. Replacing requires the COMPLETE
-cell definition from inspect_cells: preserve name, kind, source, enabled, trigger,
+cell definition from inspect_cells: preserve name, kind, source, enabled,
 color, view, annotation, equal, params, computation and override where present.
 Creating a simple cell needs id/kind/source; Markdown additionally needs explicit
 view.page as described above. New or resized footprints must not

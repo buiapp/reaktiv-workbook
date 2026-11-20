@@ -30,7 +30,7 @@ class Sheet1Worksheet(Worksheet["FinancialModelWorkbook"]):
     def net_income(self):
         return self.revenue() - self.tax()
 
-    @cell("C1", enabled=True, trigger="auto", label="log_net_income")
+    @cell("C1", enabled=True, label="log_net_income")
     @effect
     def log_net_income(self):
         print(f"Net income updated: {self.net_income():,.2f}")

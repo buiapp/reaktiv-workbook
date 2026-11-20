@@ -27,7 +27,7 @@ class Sheet1Worksheet(Worksheet["EffectInputWritesWorkbook"]):
     def price(self):
         return self.counter() * 2
 
-    @cell("C1", enabled=True, trigger="auto")
+    @cell("C1", enabled=True)
     @effect
     def c1(self):
         cells = cell_refs(self, "Sheet1")
@@ -36,11 +36,14 @@ class Sheet1Worksheet(Worksheet["EffectInputWritesWorkbook"]):
             cells.counter.update(lambda counter: self.limit())
             cells.price.set(7)
 
-    @cell("D1", enabled=True, trigger="manual")
+    @cell("D1", enabled=True)
     @effect
     def d1(self):
         cells = cell_refs(self, "Sheet1")
-        cells.price.reset()
+        if self.reset_price():
+            cells.price.reset()
+
+    reset_price = cell("E1", field(False), label="reset_price")
 
     # Counter
     counter = cell("A2", field(0), label="counter")

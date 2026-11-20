@@ -48,7 +48,6 @@ describe('sheet file views and snapshots', () => {
           kind: 'input',
           source: '0.2',
           enabled: true,
-          trigger: 'auto',
           name: 'rate',
           view: { display: 'rendered', widget: { type: 'checkbox' } },
         },
@@ -79,6 +78,6 @@ describe('sheet file views and snapshots', () => {
 it('preserves Python widget settings expressions when saving', () => {
   const view = { widget: { type: 'range' as const, min: 'lower', max: 'upper * 2', step: .5 } };
   expect(normalizeView(view)).toEqual(view);
-  const document = createSheetDocument('Widgets', 2, 2, [{ id: 'A1', kind: 'input', source: '2', enabled: true, trigger: 'auto', view }], []);
+  const document = createSheetDocument('Widgets', 2, 2, [{ id: 'A1', kind: 'input', source: '2', enabled: true, view }], []);
   expect(serializeSheetDocument(document)).toContain('"max": lambda self: upper * 2');
 });

@@ -61,8 +61,8 @@ describe('button action intent', () => {
       message: { value: 'A1' },
     });
     const cells: CellDefinition[] = [
-      { id: 'A1', kind: 'input', source: '3', enabled: true, trigger: 'auto' },
-      { id: 'B1', kind: 'input', source: '0', enabled: true, trigger: 'auto', view },
+      { id: 'A1', kind: 'input', source: '3', enabled: true },
+      { id: 'B1', kind: 'input', source: '0', enabled: true, view },
     ];
     const { copies } = duplicateSheet(
       cells,

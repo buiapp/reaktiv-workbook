@@ -3,7 +3,7 @@ import { createSheetDocument } from '../sheet-file';
 import type { CellDefinition, GraphResult, LogEntry } from '../sheet.types';
 import { cellPreview, dependencyContext, queryLogs, workbookOverview } from './agent-introspection';
 
-const cells: CellDefinition[] = ['A1', 'B1', 'C1', 'Other!A1'].map(id => ({ id, kind: 'formula', source: '1', enabled: true, trigger: 'auto' }));
+const cells: CellDefinition[] = ['A1', 'B1', 'C1', 'Other!A1'].map(id => ({ id, kind: 'formula', source: '1', enabled: true }));
 const document = createSheetDocument('Book', 10, 16, cells, []);
 const graph: GraphResult = { cells: [], dependencies: { B1: ['A1'], C1: ['B1'], A1: ['C1'] },
   sourceDependencies: { B1: ['A1', 'Other!A1'] }, dependencyStates: { B1: 'partial' },

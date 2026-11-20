@@ -1,7 +1,6 @@
 import type { WidgetType } from './input-widgets';
 
 export type CellKind = 'input' | 'linked' | 'formula' | 'resource' | 'markdown' | 'effect';
-export type EffectTrigger = 'auto' | 'manual';
 
 export interface CellDefinition {
   id: string;
@@ -16,7 +15,6 @@ export interface CellDefinition {
   /** Optional linked computation; receives source and previous state. */
   computation?: string;
   enabled: boolean;
-  trigger: EffectTrigger;
   color?: string;
   /** Dashboard presentation in the grid; absent for a plain value cell. */
   view?: CellView;
@@ -154,7 +152,6 @@ export interface ArtifactResult {
 export interface EffectResult {
   id: string;
   enabled: boolean;
-  trigger: EffectTrigger;
   triggerCount: number;
   lastTriggered: string | null;
   output: string;

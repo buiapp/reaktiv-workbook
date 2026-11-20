@@ -51,7 +51,7 @@ def test_effect_and_host_write_actual_python_objects_without_serializing():
     w.apply([
         CellDefinition('A1', 'input', 'None', name='state'),
         CellDefinition('B1', 'formula', 'None if state is None else state.shape[0]'),
-        CellDefinition('C1', 'effect', 'cells.state.set(np.arange(3))', trigger='manual'),
+        CellDefinition('C1', 'effect', 'cells.state.set(np.arange(3))'),
     ])
     snapshot = w.run_effect('C1')
     assert np.array_equal(w.value('A1'), [0, 1, 2])

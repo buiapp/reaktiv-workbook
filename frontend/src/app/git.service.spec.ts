@@ -8,7 +8,6 @@ const cell = (id: string, source: string, name?: string, kind: CellDefinition['k
   kind,
   source,
   enabled: true,
-  trigger: 'auto',
   ...(name ? { name } : {}),
 });
 const workbook = (cells: CellDefinition[], packages: string[] = []) => createSheetDocument('Budget', 10, 16, cells, packages);

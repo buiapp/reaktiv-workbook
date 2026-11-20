@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { agentCellLayoutKey, inspectCellLayouts, type AgentWorksheetLayout } from './agent-layout';
 import type { CellDefinition, CellResult } from '../sheet.types';
-const cell = (id: string, view: CellDefinition['view'] = {}): CellDefinition => ({id, view, kind: 'input', source: '7', enabled: true, trigger: 'auto'});
+const cell = (id: string, view: CellDefinition['view'] = {}): CellDefinition => ({id, view, kind: 'input', source: '7', enabled: true});
 const layout: AgentWorksheetLayout = {columns: 10, rows: 16, columnWidths: {}, rowHeights: {}};
 const result = (id: string): CellResult => ({id, value: 7, display: '7', valueType: 'int', error: null});
 function sizes(element: HTMLElement, width: number, height: number, scrollWidth = width, scrollHeight = height) {

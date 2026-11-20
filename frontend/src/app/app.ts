@@ -213,7 +213,6 @@ import type {
   CellView,
   CellWidget,
   ResolvedCellWidget,
-  EffectTrigger,
   GraphResult,
   KernelKind,
   LogEntry,
@@ -784,7 +783,6 @@ export class App implements OnInit, OnDestroy {
   }
 
   protected editorSource = STARTER_NOTE.source;
-  protected editorTrigger: EffectTrigger = 'auto';
   protected editorColor = '';
   protected packageSource = '';
   protected importSource = '';
@@ -1306,7 +1304,7 @@ export class App implements OnInit, OnDestroy {
     evaluate: propagate => propagate ? this.evaluateGraphNow(false, true) : this.evaluateGraph(),
     acceptGraph: graph => this.acceptGraph(graph), flash: ids => this.flashUpdatedCells(ids),
     acceptLiveGraph: graph => this.acceptGraph({...graph, cellChanges: [], updateTrace: this.graph().updateTrace}, false, true),
-    settle: () => this.activity.settle(), runEffect: id => this.runEffect(id),
+    settle: () => this.activity.settle(),
   });
   protected readonly actionDefinitions = this.workbookState.actions;
   protected readonly actionsOpen = signal(false);
@@ -1408,7 +1406,7 @@ export class App implements OnInit, OnDestroy {
     return this.actionWorkspace.saveBindings(event);
   }
   protected invokeAction(event: {name: string; arguments: Record<string, ActionBinding>}): Promise<void> {
-    if (this.saving() || (!event.name.startsWith('effect:') && this.actionWorkspacePanel?.hasUnappliedDrafts)) {
+    if (this.saving() || this.actionWorkspacePanel?.hasUnappliedDrafts) {
       const message = this.saving() ? 'Wait for the workbook save to finish before running an action.'
         : `Action ${event.name} was not run: there are unapplied action edits. Apply the edits or save the workbook first.`;
       this.actionError.set(message);
@@ -1487,7 +1485,7 @@ export class App implements OnInit, OnDestroy {
       (target.getAttribute('href') ?? '').slice('#sheet-action:'.length),
     );
     const action = this.graph().actions?.find((item) => item.name === name);
-    if (!action && !name.startsWith('effect:')) {
+    if (!action) {
       this.evaluationError = `Unknown action: ${name}`;
       return;
     }
@@ -2091,7 +2089,7 @@ export class App implements OnInit, OnDestroy {
   });
   protected readonly searchableCells = computed(() => {
     const cells = new Map(this.cells().map(cell => [cell.id, cell]));
-    for (const [id, draft] of this.cellDrafts()) cells.set(id, {id, enabled: true, trigger: 'auto', ...cells.get(id), kind: draft.kind, name: draft.name, source: draft.source, params: draft.params, computation: draft.computation, annotation: draft.annotation, equal: draft.equal});
+    for (const [id, draft] of this.cellDrafts()) cells.set(id, {id, enabled: true, ...cells.get(id), kind: draft.kind, name: draft.name, source: draft.source, params: draft.params, computation: draft.computation, annotation: draft.annotation, equal: draft.equal});
     const note = cells.get(this.activeNoteId());
     if (note?.kind === 'markdown' && !this.cellDrafts().has(note.id) && (this.viewMode() === 'notes' || this.viewMode() === 'split')) cells.set(note.id, {...note, source: this.noteDraft()});
     return [...cells.values()];
@@ -3933,7 +3931,6 @@ export class App implements OnInit, OnDestroy {
           kind: 'formula',
           source: collectionSource(selected, mode, splitCellId(target.id)[0], this.sheetName()),
           enabled: true,
-          trigger: 'auto',
         },
       ]),
     );
@@ -4156,7 +4153,6 @@ export class App implements OnInit, OnDestroy {
           kind: 'markdown',
           source: '# Untitled note\n\nStart writing…',
           enabled: true,
-          trigger: 'auto',
         },
       ]),
     );
@@ -4678,7 +4674,6 @@ export class App implements OnInit, OnDestroy {
       saveValue: this.editorKind === 'input' && existing?.saveValue === false ? false : undefined,
       override: this.editorKind === 'linked' && existing?.kind === 'linked' && existing.source === normalizedSource && existing.computation === (this.editorComputation.trim() || undefined) ? existing.override : undefined,
       enabled: existing?.kind === 'effect' ? existing.enabled : true,
-      trigger: this.editorKind === 'effect' ? this.editorTrigger : 'auto',
       color: this.editorColor || undefined,
       equal: this.editorKind !== 'effect' ? this.editorEqual.trim() || undefined : undefined,
       params: this.editorKind === 'resource' && this.editorResourceExplicit ? this.editorParams.trim() || 'None' : undefined,
@@ -6813,7 +6808,6 @@ export class App implements OnInit, OnDestroy {
     this.editorComputation = draft ? draft.computation ?? '' : definition?.computation ?? '';
     this.editorResourceExplicit = (draft ? draft.params : definition?.params) !== undefined;
     this.editorBase = this.editorState();
-    this.editorTrigger = definition?.trigger ?? 'auto';
     this.editorColor = definition?.color ?? '';
   }
 

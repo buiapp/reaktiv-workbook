@@ -82,7 +82,7 @@ describe('performance diagnostics', () => {
       await runtime.configureKernel('remote', 'http://localhost:8765', [], {});
       diagnostics.start();
       await runtime.apply([
-        { id: 'A1', kind: 'input', source: '"secret_source_123"', enabled: true, trigger: 'auto' },
+        { id: 'A1', kind: 'input', source: '"secret_source_123"', enabled: true },
       ]);
       const snapshot = JSON.stringify(diagnostics.snapshot());
       expect(snapshot).toContain('http.encode');

@@ -152,7 +152,6 @@ class ResourceCellParams:
 class EffectState:
     id: str
     enabled: bool
-    trigger: str
     trigger_count: int = 0
     last_triggered: str | None = None
     output: str = ""
@@ -165,7 +164,6 @@ class EffectState:
         return {
             "id": self.id,
             "enabled": self.enabled,
-            "trigger": self.trigger,
             "triggerCount": self.trigger_count,
             "lastTriggered": self.last_triggered,
             "output": self.output,
@@ -1699,7 +1697,6 @@ class ReactiveWorkbook:
         state = EffectState(
             id=definition.id,
             enabled=definition.enabled,
-            trigger=definition.trigger,
             trigger_count=previous.trigger_count if previous else 0,
             last_triggered=previous.last_triggered if previous else None,
             output=previous.output if previous else "",
@@ -1723,7 +1720,7 @@ class ReactiveWorkbook:
             self._dependencies[definition.id] = []
             return
 
-        if not definition.enabled or definition.trigger == "manual":
+        if not definition.enabled:
             return
 
         tick = self._effect_write_ticks[definition.id] = Signal(0)

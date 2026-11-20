@@ -83,7 +83,6 @@ const graph: GraphResult = {
     {
       id: 'C1',
       enabled: true,
-      trigger: 'auto',
       triggerCount: 1,
       lastTriggered: '2026-09-21T08:00:00.000+00:00',
       output: 'Net income updated: 102,500.00',
@@ -97,19 +96,18 @@ const graph: GraphResult = {
 
 /** The small financial workbook most tests work on (the app itself starts blank). */
 const FINANCIAL_CELLS: CellDefinition[] = [
-  { id: 'A1', name: 'revenue', kind: 'input', source: '125000', enabled: true, trigger: 'auto' },
-  { id: 'A2', name: 'tax_rate', kind: 'input', source: '0.18', enabled: true, trigger: 'auto' },
-  { id: 'A3', name: 'tax', kind: 'formula', source: 'revenue * tax_rate', enabled: true, trigger: 'auto' },
-  { id: 'B1', name: 'net_income', kind: 'formula', source: 'revenue - tax', enabled: true, trigger: 'auto' },
-  { id: 'B2', name: 'average_revenue', kind: 'formula', source: 'np.mean(np.array([118000, revenue, 137500]))', enabled: true, trigger: 'auto' },
-  { id: 'C1', name: 'income_log', kind: 'effect', source: 'print(f"Net income updated: {net_income:,.2f}")', enabled: true, trigger: 'auto' },
+  { id: 'A1', name: 'revenue', kind: 'input', source: '125000', enabled: true },
+  { id: 'A2', name: 'tax_rate', kind: 'input', source: '0.18', enabled: true },
+  { id: 'A3', name: 'tax', kind: 'formula', source: 'revenue * tax_rate', enabled: true },
+  { id: 'B1', name: 'net_income', kind: 'formula', source: 'revenue - tax', enabled: true },
+  { id: 'B2', name: 'average_revenue', kind: 'formula', source: 'np.mean(np.array([118000, revenue, 137500]))', enabled: true },
+  { id: 'C1', name: 'income_log', kind: 'effect', source: 'print(f"Net income updated: {net_income:,.2f}")', enabled: true },
   {
     id: 'D1',
     name: 'financial_snapshot',
     kind: 'markdown',
     source: '# Financial snapshot\n\nNet income is **{{ net_income }}**.\n\nAverage revenue: `{{ average_revenue }}`',
     enabled: true,
-    trigger: 'auto',
   },
 ];
 
@@ -273,7 +271,7 @@ class WorkbookSourceStub {
   readonly verifyCalls: string[] = [];
   validateActions(document:SheetDocument) {
     return this.serialize({...document,environment:{packages:[],imports:[],variables:{}},
-      cells:document.cells.map(cell=>({id:cell.id,name:cell.name,kind:'input',source:'None',enabled:true,trigger:'auto'}))});
+      cells:document.cells.map(cell=>({id:cell.id,name:cell.name,kind:'input',source:'None',enabled:true}))});
   }
   serialize(document: SheetDocument) {
     const result = serializeResult(document);
@@ -544,7 +542,7 @@ describe('App', () => {
     };
     await app.workbookCommands.run(async () => undefined);
     app.extraSheets.set(['Budget']);
-    app.cells.update(cells => [...cells, { id: 'Budget!D12', kind: 'input', source: '1', enabled: true, trigger: 'auto', view: { span: [2, 3] } }]);
+    app.cells.update(cells => [...cells, { id: 'Budget!D12', kind: 'input', source: '1', enabled: true, view: { span: [2, 3] } }]);
     const layout = { columns: 15, rows: 30, columnWidths: { T: 140 }, rowHeights: { '40': 88 } };
     app.storedLayouts.set({ Budget: layout });
     app.cellDrafts.set(new Map([['Budget!G20', { kind: 'input', name: 'draft', source: '3' }]]));
@@ -604,8 +602,8 @@ describe('App', () => {
       activeNoteId: ReturnType<typeof signal<string>>; noteDraft: ReturnType<typeof signal<string>>;
     };
     await app.workbookCommands.run(async () => undefined);
-    app.cells.set([{id:'A1',kind:'input',source:'10',enabled:true,trigger:'auto'},
-      {id:'B1',kind:'formula',source:'A1 * 2',enabled:true,trigger:'auto'}]);
+    app.cells.set([{id:'A1',kind:'input',source:'10',enabled:true},
+      {id:'B1',kind:'formula',source:'A1 * 2',enabled:true}]);
     app.actionDefinitions.set([{name:'adjust',source:'def adjust(self):\n    self.a1.set(20)',references:{a1:'A1'},bindings:{},label:'',exposed:true}]);
     app.editorCellId = null; app.cellDrafts.set(new Map<string, never>()); app.activeNoteId.set(''); app.noteDraft.set(''); app.syncEditor();
     await app.workbookCommands.run(() => app.agentWorkbook.execute({id:'label',operation:'label',expiresAt:Date.now()+60000,
@@ -835,7 +833,7 @@ describe('App', () => {
     try {
       const cells: CellDefinition[] = Array.from({length: 40}, (_, index) => ({
         id: `A${index + 1}`, kind: 'markdown', source: `Note ${index}\n${'explanation '.repeat(6000)}`,
-        enabled: true, trigger: 'auto',
+        enabled: true,
       }));
       app.cells.set(cells);
       app.graph.set({...graph, cells: cells.map(cell => ({id: cell.id, display: cell.source, value: cell.source, valueType: 'markdown', error: null}))});
@@ -863,7 +861,7 @@ describe('App', () => {
     };
     const parse = vi.spyOn(marked, 'parse');
     try {
-      app.cells.set([{id: 'A1', kind: 'markdown', source: '![Plot](#cell-B1)', enabled: true, trigger: 'auto'}]);
+      app.cells.set([{id: 'A1', kind: 'markdown', source: '![Plot](#cell-B1)', enabled: true}]);
       app.graph.set({...graph, cells: [
         {id: 'A1', display: '![Plot](#cell-B1)', value: '', valueType: 'markdown', error: null},
         {id: 'B1', display: 'Plot', value: null, valueType: 'rich-output', error: null, richOutput: {mimeType: 'image/png', dataBase64: 'first'}},
@@ -890,7 +888,7 @@ describe('App', () => {
     const parse = vi.spyOn(marked, 'parse');
     try {
       const source = '![](assets/0123456789abcdef.png)';
-      app.cells.set([{id: 'A1', kind: 'markdown', source, enabled: true, trigger: 'auto'}]);
+      app.cells.set([{id: 'A1', kind: 'markdown', source, enabled: true}]);
       app.graph.set({...graph, cells: [{id: 'A1', display: source, value: source, valueType: 'markdown', error: null}]});
       expect(app.markdownHtmlMap().get('A1')).toContain('blob:first');
       parse.mockClear();
@@ -912,8 +910,8 @@ describe('App', () => {
     };
     try {
       app.cells.set([
-        {id: 'A1', kind: 'markdown', source: '**note**', enabled: true, trigger: 'auto'},
-        {id: 'B1', kind: 'formula', source: "'**value**'", enabled: true, trigger: 'auto'},
+        {id: 'A1', kind: 'markdown', source: '**note**', enabled: true},
+        {id: 'B1', kind: 'formula', source: "'**value**'", enabled: true},
       ]);
       app.graph.set({...graph, cells: [
         {id: 'A1', display: '**note**', value: '**note**', valueType: 'markdown', error: null},
@@ -971,7 +969,7 @@ describe('App', () => {
       cells: ReturnType<typeof signal<CellDefinition[]>>; graph: ReturnType<typeof signal<GraphResult>>;
       cellHighlight(id: string): string | null; setCellColor(id: string, color: string): void;
     };
-    app.cells.set([{id: 'A1', kind: 'input', source: '1', enabled: true, trigger: 'auto', color: '#eeeeee', view: {color: {expr: 'status_color'}}}]);
+    app.cells.set([{id: 'A1', kind: 'input', source: '1', enabled: true, color: '#eeeeee', view: {color: {expr: 'status_color'}}}]);
     app.graph.set({...graph, cells: [{id: 'A1', display: '1', value: 1, valueType: 'int', error: null, color: '#ffcccc'}]});
     expect(app.cellHighlight('A1')).toBe('#ffcccc');
     app.graph.update(graph => ({...graph, cells: graph.cells.map(cell => ({...cell, color: ''}))}));
@@ -1062,8 +1060,8 @@ describe('App', () => {
       cellDrafts(): ReadonlyMap<string, {computation?: string}>;
     };
     app.cells.set([
-      {id: 'A1', kind: 'input', source: '10', enabled: true, trigger: 'auto'},
-      {id: 'B1', kind: 'linked', source: 'A1', computation: 'source', override: '5', enabled: true, trigger: 'auto'},
+      {id: 'A1', kind: 'input', source: '10', enabled: true},
+      {id: 'B1', kind: 'linked', source: 'A1', computation: 'source', override: '5', enabled: true},
     ]);
     app.selectCell('B1');
     expect(app.editorComputation).toBe('source');
@@ -1169,8 +1167,8 @@ describe('App', () => {
       canCancelResource(id: string): boolean; stopRunningCell(): Promise<void>;
     };
     app.cells.update(cells => [...cells,
-      {id:'B3',name:'download',kind:'resource',source:'await asyncio.sleep(100)',enabled:true,trigger:'auto'},
-      {id:'C3',kind:'resource',source:'await asyncio.sleep(100)',enabled:true,trigger:'auto'},
+      {id:'B3',name:'download',kind:'resource',source:'await asyncio.sleep(100)',enabled:true},
+      {id:'C3',kind:'resource',source:'await asyncio.sleep(100)',enabled:true},
     ]);
     app.switchFromNotes('sheet'); app.selectCell('B3');
     fixture.detectChanges(); await fixture.whenStable();
@@ -1352,7 +1350,7 @@ describe('App', () => {
       cellTypeFocus: ReturnType<typeof signal<string>>;
       focusedTypeIds: () => Set<string>;
     };
-    app.cells.set([{id: 'A1', kind: 'input', source: '2', enabled: true, trigger: 'auto'}, {id: 'A2', kind: 'formula', source: 'A1 * 2', enabled: true, trigger: 'auto'}]);
+    app.cells.set([{id: 'A1', kind: 'input', source: '2', enabled: true}, {id: 'A2', kind: 'formula', source: 'A1 * 2', enabled: true}]);
     app.viewMode.set('sheet'); app.selectCell('A1');
     app.editorSource = 'new_debug_keyword';
     app.openCellSearch();
@@ -1379,7 +1377,7 @@ describe('App', () => {
       undo: () => void;
     };
     app.pendingStart.set(false);
-    app.cells.set(['A1','A2','A3'].map(id=>({id,kind:'markdown',source:'# '+id,enabled:true,trigger:'auto'})));
+    app.cells.set(['A1','A2','A3'].map(id=>({id,kind:'markdown',source:'# '+id,enabled:true})));
     app.activeNoteId.set('A1');app.noteDraft.set('# A1');app.selectCell('A1');
     app.organizeNote('A2','A1');app.organizeNote('A3','A2');app.organizeNote('A1','A3');
     expect(app.validNoteParents()).toEqual({A2:'A1',A3:'A2'});
@@ -1404,7 +1402,7 @@ describe('App', () => {
       undo: () => void;
     };
     app.pendingStart.set(false);
-    app.cells.set(['A1', 'A2', 'A3'].map(id => ({id, kind: 'markdown', source: '# ' + id, enabled: true, trigger: 'auto'})));
+    app.cells.set(['A1', 'A2', 'A3'].map(id => ({id, kind: 'markdown', source: '# ' + id, enabled: true})));
     app.noteParents.set({A3: 'A2'});
     app.activeNoteId.set('A1'); app.noteDraft.set('# A1'); app.selectCell('A1');
     app.noteDraft.set('# Unsaved edits');
@@ -1431,8 +1429,8 @@ describe('App', () => {
       discardCellDraft: () => void;
     };
     app.pendingStart.set(false);
-    app.cells.set([{id:'A1',kind:'input',source:'1',enabled:true,trigger:'auto'},
-      {id:'B1',kind:'resource',source:'return params',enabled:true,trigger:'auto'}]);
+    app.cells.set([{id:'A1',kind:'input',source:'1',enabled:true},
+      {id:'B1',kind:'resource',source:'return params',enabled:true}]);
     app.selectCell('B1'); app.editorResourceExplicit = true; app.editorParams = 'A1';
     app.selectCell('A1'); app.selectCell('B1');
     expect(app.editorParams).toBe('A1'); expect(app.editorResourceExplicit).toBe(true);
@@ -1457,7 +1455,7 @@ describe('App', () => {
       undo: () => void;
     };
     app.pendingStart.set(false);
-    app.cells.set([{id:'A1',kind:'input',source:'1',enabled:true,trigger:'auto'}, {id:'B1',kind:'formula',source:'A1 * 2',enabled:true,trigger:'auto'}]);
+    app.cells.set([{id:'A1',kind:'input',source:'1',enabled:true}, {id:'B1',kind:'formula',source:'A1 * 2',enabled:true}]);
     app.selectCell('A1');
     app.editorEqual = 'lambda previous, current: abs(previous - current) < 0.01';
     app.selectCell('B1'); app.selectCell('A1');
@@ -1479,7 +1477,7 @@ describe('App', () => {
       acceptSessionState: (state: {revision:number;document:ReturnType<typeof createSheetDocument>;graph:GraphResult}) => void;
     };
     app.pendingStart.set(false);
-    const cells:CellDefinition[] = [{id:'A1',kind:'input',source:'1',enabled:true,trigger:'auto'}, {id:'B1',kind:'formula',source:'A1 * 2',enabled:true,trigger:'auto'}];
+    const cells:CellDefinition[] = [{id:'A1',kind:'input',source:'1',enabled:true}, {id:'B1',kind:'formula',source:'A1 * 2',enabled:true}];
     app.cells.set(cells);app.selectCell('B1');app.editorSource = 'A1 * 3';
     app.acceptSessionState({revision:2,document:createSheetDocument('Host',2,2,[{...cells[0],source:'2'},cells[1]]),graph});
     expect(app.editorSource).toBe('A1 * 3');
@@ -1498,7 +1496,7 @@ describe('App', () => {
       recoverSessionConflict: () => Promise<void>;
     };
     app.pendingStart.set(false);
-    const cell:CellDefinition = {id:'A1',kind:'formula',source:'10',enabled:true,trigger:'auto'};
+    const cell:CellDefinition = {id:'A1',kind:'formula',source:'10',enabled:true};
     app.cells.set([cell]);app.selectCell('A1');app.editorSource='20';
     app.completedCells.set(new Map([['A1',cell]]));
     app.cells.set([{...cell,source:'20'}]);
@@ -1518,7 +1516,7 @@ describe('App', () => {
       saveSheet(): Promise<void>; kernelRunning(): boolean; openActions(): void; actionsOpen(): boolean;
     };
     const document = createSheetDocument('Standalone', 2, 2, [
-      {id: 'A1', kind: 'input', source: '1', enabled: true, trigger: 'auto'},
+      {id: 'A1', kind: 'input', source: '1', enabled: true},
     ]);
     const runtime = TestBed.inject(RuntimeService) as unknown as {
       attachSession(): Promise<unknown>; monitorSession(): () => void;
@@ -1548,7 +1546,7 @@ describe('App', () => {
       openEmbeddedSession: () => Promise<void>;
       currentDraftDocument: () => ReturnType<typeof createSheetDocument>;
     };
-    const document = createSheetDocument('Host',2,2,[{id:'A1',kind:'input',source:'1',enabled:true,trigger:'auto'}],[],undefined,{},[],undefined,{kernel:'local',python:'3.12'});
+    const document = createSheetDocument('Host',2,2,[{id:'A1',kind:'input',source:'1',enabled:true}],[],undefined,{},[],undefined,{kernel:'local',python:'3.12'});
     const runtime = TestBed.inject(RuntimeService) as unknown as {
       attachSession: () => Promise<unknown>;
       monitorSession: () => (()=>void);
@@ -1572,8 +1570,8 @@ describe('App', () => {
       startWorkbook(): Promise<void>;
     };
     const document = createSheetDocument('Notes on open', 2, 3, [
-      {id: 'A1', kind: 'input', source: '1', enabled: true, trigger: 'auto'},
-      {id: noteId, kind: 'markdown', source: '# Workbook instructions', enabled: true, trigger: 'auto'},
+      {id: 'A1', kind: 'input', source: '1', enabled: true},
+      {id: noteId, kind: 'markdown', source: '# Workbook instructions', enabled: true},
     ]);
     document.sheets = [{name: 'Guide', grid: {columns: 4, rows: 5}, layout: {columnWidths: {A: 180}, rowHeights: {}}}];
     app.viewMode.set(view);
@@ -1701,9 +1699,9 @@ describe('App', () => {
     };
     app.extraSheets.set(['Budget']);
     app.cells.set([
-      { id: 'A1', kind: 'input', source: '1', enabled: true, trigger: 'auto' },
-      { id: 'Budget!B2', kind: 'formula', source: 'Sheet1.A1 + A1', enabled: true, trigger: 'auto' },
-      { id: 'C1', kind: 'markdown', source: '[see](#cell-Budget!B2) [a](#cell-A1)', enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'input', source: '1', enabled: true },
+      { id: 'Budget!B2', kind: 'formula', source: 'Sheet1.A1 + A1', enabled: true },
+      { id: 'C1', kind: 'markdown', source: '[see](#cell-Budget!B2) [a](#cell-A1)', enabled: true },
     ]);
 
     app.reorderSheets(['Budget', 'Sheet1']);
@@ -1735,9 +1733,9 @@ describe('App', () => {
     };
     app.extraSheets.set(['Budget']);
     app.cells.set([
-      { id: 'A1', name: 'rent', kind: 'input', source: '1', enabled: true, trigger: 'auto' },
-      { id: 'A2', kind: 'input', source: '2', enabled: true, trigger: 'auto' },
-      { id: 'Budget!B2', kind: 'formula', source: '1', enabled: true, trigger: 'auto' },
+      { id: 'A1', name: 'rent', kind: 'input', source: '1', enabled: true },
+      { id: 'A2', kind: 'input', source: '2', enabled: true },
+      { id: 'Budget!B2', kind: 'formula', source: '1', enabled: true },
     ]);
     app.selectCell('Budget!B2');
     const editor = { insertAtCursor: vi.fn(), focus: vi.fn() };
@@ -1777,9 +1775,9 @@ describe('App', () => {
     };
     app.extraSheets.set(['Budget']);
     app.cells.set([
-      { id: 'A1', kind: 'input', source: '1', enabled: true, trigger: 'auto' },
-      { id: 'Budget!A1', kind: 'input', source: '2', enabled: true, trigger: 'auto' },
-      { id: 'Budget!B1', kind: 'markdown', source: '{{ A1 }} {{ Sheet1.A1 }}', enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'input', source: '1', enabled: true },
+      { id: 'Budget!A1', kind: 'input', source: '2', enabled: true },
+      { id: 'Budget!B1', kind: 'markdown', source: '{{ A1 }} {{ Sheet1.A1 }}', enabled: true },
     ]);
     app.activeNoteId.set('Budget!B1');
     const byReference = new Map(app.noteValues().map((value) => [value.reference, value.cellId]));
@@ -1820,7 +1818,6 @@ describe('App', () => {
               kind: 'input',
               source: '2',
               enabled: true,
-              trigger: 'auto',
             },
           ],
         },
@@ -1987,8 +1984,8 @@ describe('App', () => {
     };
     runtime.inspectDocument = vi.fn().mockResolvedValue(
       copied([
-        { id: 'C3', kind: 'input', source: '12', name: 'price', enabled: true, trigger: 'auto' },
-        { id: 'D3', kind: 'formula', source: 'price * 2', name: 'twice', enabled: true, trigger: 'auto' },
+        { id: 'C3', kind: 'input', source: '12', name: 'price', enabled: true },
+        { id: 'D3', kind: 'formula', source: 'price * 2', name: 'twice', enabled: true },
       ]),
     );
     await app.pasteCopiedCells('# /// script', 'C3');
@@ -2070,7 +2067,7 @@ describe('App', () => {
       cellDrafts(): ReadonlyMap<string, { source: string }>;
     };
     runtime.inspectDocument = vi.fn().mockResolvedValue({
-      cells: ['H20', 'I20'].map((id) => ({ id, kind: 'input', source: '12', enabled: true, trigger: 'auto' })),
+      cells: ['H20', 'I20'].map((id) => ({ id, kind: 'input', source: '12', enabled: true })),
     });
     app.selectCell('I20');
     app.updateEditorSource('stashed draft');
@@ -2131,7 +2128,7 @@ describe('App', () => {
       memoryDiagnostics():Promise<{frontend:{cells:number;cellSourceChars:number;serializer:{active:boolean}}}>;
     };
     const source='"private_workbook_value_019283"';
-    app.cells.set([{id:'A1',name:'private_label_019283',kind:'input',source,enabled:true,trigger:'auto'}]);
+    app.cells.set([{id:'A1',name:'private_label_019283',kind:'input',source,enabled:true}]);
     const report=await app.memoryDiagnostics();
     expect(report.frontend.cells).toBe(1);
     expect(report.frontend.cellSourceChars).toBe(source.length);
@@ -2153,8 +2150,8 @@ describe('App', () => {
       cellDropPreview(): {invalid: boolean; pane: number} | null;
     };
     const cells: CellDefinition[] = [
-      {id: 'A1', kind: 'input', source: '1', enabled: true, trigger: 'auto', view: {span: [2, 2]}},
-      {id: 'D1', kind: 'input', source: '2', enabled: true, trigger: 'auto'},
+      {id: 'A1', kind: 'input', source: '1', enabled: true, view: {span: [2, 2]}},
+      {id: 'D1', kind: 'input', source: '2', enabled: true},
     ];
     app.cells.set(cells); app.viewMode.set('sheet');
     let source = 'A1';
@@ -2187,7 +2184,7 @@ describe('App', () => {
       moveCellGroup(ids: string[], anchor: string, target: string): Promise<boolean>;
       columns(): string[]; rows(): number[];
     };
-    const cell: CellDefinition = {id: 'B16', kind: 'input', source: '1', enabled: true, trigger: 'auto', view: {span: [2, 3]}};
+    const cell: CellDefinition = {id: 'B16', kind: 'input', source: '1', enabled: true, view: {span: [2, 3]}};
     app.cells.set([cell]); app.viewMode.set('sheet'); app.selectCell(cell.id);
     vi.spyOn(runtime, 'moveWorkbookCells').mockResolvedValue({cells: [{...cell, id: 'J16'}], graph, actions: []});
     expect([app.columns().length, app.rows().length]).toEqual([10, 16]);
@@ -2211,7 +2208,7 @@ describe('App', () => {
       evaluationError: string | null; undoLabel(): string | null; columns(): string[]; rows(): number[];
     };
     await app.workbookCommands.run(async () => undefined);
-    const base = (id: string): CellDefinition => ({ id, kind: 'input', source: '1', enabled: true, trigger: 'auto' });
+    const base = (id: string): CellDefinition => ({ id, kind: 'input', source: '1', enabled: true });
     const definitions = [{ ...base('A1'), view: { span: [3, 3] as [number, number] } }, base('E1'),
       { ...base('F1'), kind: 'markdown' as const, source: '# Original' }];
     app.cells.set(definitions); app.activeNoteId.set('F1'); app.noteDraft.set('# Unapplied note');
@@ -2245,7 +2242,7 @@ describe('App', () => {
       workbookCommands: WorkbookCommandQueue; rows(): number[];
     };
     await app.workbookCommands.run(async () => undefined);
-    const tile: CellDefinition = { id: 'A1', kind: 'input', source: '1', enabled: true, trigger: 'auto', view: { span: [3, 3] } };
+    const tile: CellDefinition = { id: 'A1', kind: 'input', source: '1', enabled: true, view: { span: [3, 3] } };
     app.cells.set([tile]); app.activeNoteId.set(''); app.noteDraft.set('');
     app.createNote();
     expect(app.activeNoteId()).toBe('D1');
@@ -2624,7 +2621,7 @@ describe('App', () => {
       cellDrafts: () => ReadonlyMap<string, {source: string}>;
       undo(): void;
     };
-    const original: CellDefinition = {id: 'A1', name: 'counter', kind: 'input', source: '0', enabled: true, trigger: 'auto'};
+    const original: CellDefinition = {id: 'A1', name: 'counter', kind: 'input', source: '0', enabled: true};
     app.cells.set([original]); app.selectCell('A1');
     app.editorSource = '99';
     const runtime = TestBed.inject(RuntimeService) as unknown as RuntimeServiceStub;
@@ -2651,7 +2648,7 @@ describe('App', () => {
       undoStack: unknown[];
       invokeAction(event: {name: string; arguments: {}}): Promise<void>;
     };
-    const original: CellDefinition = {id: 'A1', name: 'counter', kind: 'input', source: '0', enabled: true, trigger: 'auto'};
+    const original: CellDefinition = {id: 'A1', name: 'counter', kind: 'input', source: '0', enabled: true};
     app.cells.set([original]); app.selectCell('A1'); app.editorSource = '99';
     const runtime = TestBed.inject(RuntimeService) as unknown as RuntimeServiceStub;
     let finish!: (graph: GraphResult) => void;
@@ -2723,7 +2720,7 @@ describe('App', () => {
       applyCell(): void;
     };
     app.extraSheets.set(['Budget']);
-    app.cells.set([{ id: 'A1', name: 'amount', kind: 'input', source: '10', enabled: true, trigger: 'auto' }]);
+    app.cells.set([{ id: 'A1', name: 'amount', kind: 'input', source: '10', enabled: true }]);
     app.selectCell('Budget!A1');
     app.editorName = 'amount';
     app.editorKind = 'input';
@@ -2749,7 +2746,7 @@ describe('App', () => {
       showSplit():void; setSplitView(index:number,view:'graph'|'sheet'):void;
     };
     app.sheetName.set('Messung');app.extraSheets.set(['Intern']);
-    app.cells.set(['B12','B13','J2','Intern!A10'].map(id=>({id,kind:id.startsWith('B')?'input':'formula',source:'1',enabled:true,trigger:'auto'})));
+    app.cells.set(['B12','B13','J2','Intern!A10'].map(id=>({id,kind:id.startsWith('B')?'input':'formula',source:'1',enabled:true})));
     app.graph.set({...graph,dependencies:{J2:['B12','B13','Intern!A10']}});
     app.selectCell('J2');
     if(mode==='single') app.switchFromNotes('graph');
@@ -2779,7 +2776,7 @@ describe('App', () => {
       setSplitView(index: number, view: 'graph' | 'sheet'): void; splitSheets(): readonly string[];
     };
     app.extraSheets.set(['Budget']);
-    app.cells.update(cells => [...cells, {id:'Budget!A1',kind:'input',source:'20',enabled:true,trigger:'auto'}]);
+    app.cells.update(cells => [...cells, {id:'Budget!A1',kind:'input',source:'20',enabled:true}]);
     app.switchFromNotes('graph'); app.selectCell('A1'); app.editorSource = '125001'; fixture.detectChanges();
     const runtime = TestBed.inject(RuntimeService) as unknown as RuntimeServiceStub;
     const runs = runtime.applyCalls.length, host = fixture.nativeElement as HTMLElement;
@@ -2883,7 +2880,7 @@ describe('App', () => {
     app.switchFromNotes('graph'); app.selectCell('A1'); fixture.detectChanges(); await fixture.whenStable();
     app.editorSource = '125001';
     app.extraSheets.set(['Budget']);
-    app.cells.update(cells => [...cells, { id: 'Budget!A1', kind: 'input', source: '2', enabled: true, trigger: 'auto' }]);
+    app.cells.update(cells => [...cells, { id: 'Budget!A1', kind: 'input', source: '2', enabled: true }]);
     app.switchSheet('Budget'); app.selectCell('Budget!A1'); fixture.detectChanges(); await fixture.whenStable();
     app.navigateSelection(-1); fixture.detectChanges(); await fixture.whenStable();
     expect(app.activeSheet()).toBe(''); expect(app.selectedId()).toBe('A1');
@@ -2921,7 +2918,7 @@ describe('App', () => {
     };
     app.switchFromNotes('graph'); fixture.detectChanges(); await fixture.whenStable();
     app.selectCell('B1'); fixture.detectChanges(); await fixture.whenStable();
-    app.openDocument(createSheetDocument('Another workbook', 4, 4, [{ id: 'A1', kind: 'input', source: '1', enabled: true, trigger: 'auto' }]), null, true);
+    app.openDocument(createSheetDocument('Another workbook', 4, 4, [{ id: 'A1', kind: 'input', source: '1', enabled: true }]), null, true);
     fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector<HTMLButtonElement>('[aria-label="Previous selection"]')?.disabled).toBe(true);
@@ -3159,8 +3156,8 @@ describe('App', () => {
       openDocument(document: SheetDocument, start: boolean): void; selectCell(id: string): void;
     };
     app.openDocument(createSheetDocument('Labels', 3, 3, [
-      { id: 'A1', kind: 'input', source: '1', name: 'rate', enabled: true, trigger: 'auto' },
-      { id: 'B1', kind: 'formula', source: 'rate * 2', enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'input', source: '1', name: 'rate', enabled: true },
+      { id: 'B1', kind: 'formula', source: 'rate * 2', enabled: true },
     ]), true);
     (fixture.componentInstance as unknown as { setWorkbookEditing(value: boolean): void }).setWorkbookEditing(true); // the formula bar is an edit-mode tool
     const compiled = fixture.nativeElement as HTMLElement;
@@ -3241,13 +3238,12 @@ describe('App', () => {
       dropCell(event: DragEvent, targetId: string): Promise<void>;
     };
     component.cells.set([
-      { id: 'A1', kind: 'input', source: '10', enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'input', source: '10', enabled: true },
       {
         id: 'B1',
         kind: 'markdown',
         source: 'Value:',
         enabled: true,
-        trigger: 'auto',
       },
     ]);
     component.activeNoteId.set('B1');
@@ -3279,13 +3275,12 @@ describe('App', () => {
       dropCell(event: DragEvent, targetId: string): Promise<void>;
     };
     component.cells.set([
-      { id: 'A1', kind: 'input', source: '10', enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'input', source: '10', enabled: true },
       {
         id: 'B1',
         kind: 'markdown',
         source: 'Value: {{ A1 }}',
         enabled: true,
-        trigger: 'auto',
       },
     ]);
     component.activeNoteId.set('B1');
@@ -3598,7 +3593,7 @@ describe('App', () => {
       saveSheet(): Promise<void>; hasUnsavedChanges(): boolean;
       assets: {extractEmbedded(cells: CellDefinition[]): Promise<CellDefinition[]>};
     };
-    app.cells.set([{id: 'A1', kind: 'input', source: '1', enabled: true, trigger: 'auto'}]);
+    app.cells.set([{id: 'A1', kind: 'input', source: '1', enabled: true}]);
     vi.spyOn(app.assets, 'extractEmbedded').mockImplementation(async cells => cells.map(cell => ({...cell, color: '#112233'})));
     let finish!: () => void;
     let entered!: () => void;
@@ -3621,7 +3616,7 @@ describe('App', () => {
     localStorage.setItem('reaktiv-workbook:auto-draft:v1', JSON.stringify({
       savedAt: '2026-10-19T08:00:00.000Z', requireExplicitStart: true,
       document: { ...createSheetDocument('Image notes', 2, 2, [], []), cells: [
-        { id: 'A1', kind: 'markdown', source: `![screenshot](${png})`, enabled: true, trigger: 'auto' },
+        { id: 'A1', kind: 'markdown', source: `![screenshot](${png})`, enabled: true },
       ] },
     }));
     const files = TestBed.inject(WorkbookFileService);
@@ -3879,7 +3874,7 @@ describe('App', () => {
       viewMode:ReturnType<typeof signal<string>>;selectCell(id:string):void;
       currentDraftDocument():SheetDocument;
     };
-    app.cells.set([...Array.from({length:20},(_,i)=>({id:'A'+(i+1),kind:'input' as const,source:'1',enabled:true,trigger:'auto' as const})),{id:'B1',kind:'formula',source:'A1',enabled:true,trigger:'auto'}]);
+    app.cells.set([...Array.from({length:20},(_,i)=>({id:'A'+(i+1),kind:'input' as const,source:'1',enabled:true})),{id:'B1',kind:'formula',source:'A1',enabled:true}]);
     app.graph.set({...graph,dependencies:{B1:Array.from({length:20},(_,i)=>'A'+(i+1))}});app.selectCell('A1');
     app.viewMode.set('graph');fixture.detectChanges();await fixture.whenStable();
     const source=JSON.stringify(app.currentDraftDocument()), runtime=TestBed.inject(RuntimeService) as unknown as RuntimeServiceStub;
@@ -3931,7 +3926,7 @@ describe('App', () => {
       setGraphOutputs(value:boolean):void;setGraphFocus(value:boolean):void;toggleGraphPin(index:number,layout:import('./graph-layout').GraphLayout):void;
       graphLayout():import('./graph-layout').GraphLayout;graphIsPinned(index:number):boolean;currentDraftDocument():SheetDocument;
     };
-    app.cells.set(['A1','B1','C1'].map((id,index)=>({id,kind:index===0?'input':'formula',source:'1',enabled:true,trigger:'auto'})));
+    app.cells.set(['A1','B1','C1'].map((id,index)=>({id,kind:index===0?'input':'formula',source:'1',enabled:true})));
     app.graph.set({...graph,dependencies:{B1:['A1']},cells:[{id:'B1',value:null,display:'Plot',valueType:'rich-output',error:null,richOutput:{mimeType:'image/png',dataBase64:'plot'}}]});
     app.viewMode.set('graph');app.setGraphOutputs(true);app.setGraphFocus(true);app.selectCell('B1');app.graphZoom.set(.5);fixture.detectChanges();
     app.toggleGraphPin(-1,app.graphLayout());app.selectCell('C1');fixture.detectChanges();
@@ -3965,7 +3960,7 @@ describe('App', () => {
       graphLayout():import('./graph-layout').GraphLayout;setGraphOutputs(value:boolean):void;
       toggleGraphPin(index:number,layout:import('./graph-layout').GraphLayout):void;graphIsPinned(index:number):boolean;
     };
-    app.cells.set(['A1','B1','C1','D1','E1'].map((id,index):CellDefinition=>({id,kind:index===0?'input':'formula',source:index===0?'False':'None',enabled:true,trigger:'auto',...(index===0?{view:{widget:{type:'checkbox'}}}:{})})));
+    app.cells.set(['A1','B1','C1','D1','E1'].map((id,index):CellDefinition=>({id,kind:index===0?'input':'formula',source:index===0?'False':'None',enabled:true,...(index===0?{view:{widget:{type:'checkbox'}}}:{})})));
     const rows:import('./sheet.types').CellResult[]=[
       {id:'A1',value:false,display:'False',valueType:'bool',error:null},
       {id:'B1',value:null,display:'Plot',valueType:'rich-output',error:null,richOutput:{mimeType:'image/png',dataBase64:'first'}},
@@ -4013,7 +4008,7 @@ describe('App', () => {
       graphLayout():import('./graph-layout').GraphLayout;toggleGraphPin(index:number,layout:import('./graph-layout').GraphLayout):void;
       graphIsPinned(index:number):boolean;showSplit():void;toggleSplitSides():void;
     };
-    app.cells.set(['A1','B1','C1','D1'].map(id=>({id,kind:'formula',source:'1',enabled:true,trigger:'auto'})));
+    app.cells.set(['A1','B1','C1','D1'].map(id=>({id,kind:'formula',source:'1',enabled:true})));
     app.graph.set({...graph,dependencies:{B1:['A1'],D1:['C1']}});
     app.splitViews.set(['graph','sheet']);app.viewMode.set('graph');app.setGraphFocus(true);app.selectCell('B1');fixture.detectChanges();
     app.toggleGraphPin(-1,app.graphLayout());
@@ -4040,7 +4035,7 @@ describe('App', () => {
       selectCell(id:string):void; showUpdateTrace(path:{id:string;direction:'upstream'|'downstream'}):void;
       setTraceUpdates(enabled:boolean):void;
     };
-    app.cells.set(['A1','B1','C1','D1'].map((id,index):CellDefinition=>({id,kind:index===1?'markdown':'formula',source:'1',enabled:true,trigger:'auto',view:{page:false}})));
+    app.cells.set(['A1','B1','C1','D1'].map((id,index):CellDefinition=>({id,kind:index===1?'markdown':'formula',source:'1',enabled:true,view:{page:false}})));
     const observed=(status:import('./sheet.types').CellUpdateStatus,dependencies:string[]=[])=>({status,dependencies,executions:status==='equal'?1:0,publishedChanged:status==='changed',changedDependencies:[]});
     app.graph.set({...graph,dependencies:{B1:['A1'],C1:['B1']},updateTrace:{sequence:2,roots:['A1'],cells:{A1:observed('changed'),B1:observed('equal',['A1']),C1:observed('cached',['B1']),D1:observed('unaffected')}}});
     app.graphHideText.set(true);app.viewMode.set('graph');app.selectCell('C1');app.traceUpdates.set(true);
@@ -4074,10 +4069,10 @@ describe('App', () => {
       selectCell(id: string): void;
     };
     const definitions: CellDefinition[] = [
-      {id:'A1',kind:'formula',source:'1/0',enabled:true,trigger:'auto'},
-      {id:'B1',kind:'formula',source:'A1+1',enabled:true,trigger:'auto'},
-      {id:'C1',kind:'markdown',source:'Heading',enabled:true,trigger:'auto',view:{page:false}},
-      {id:'D1',kind:'input',source:'1',enabled:true,trigger:'auto'},
+      {id:'A1',kind:'formula',source:'1/0',enabled:true},
+      {id:'B1',kind:'formula',source:'A1+1',enabled:true},
+      {id:'C1',kind:'markdown',source:'Heading',enabled:true,view:{page:false}},
+      {id:'D1',kind:'input',source:'1',enabled:true},
     ];
     app.cells.set(definitions);
     app.graph.set({...graph, dependencies:{B1:['A1']}, cells:[
@@ -4116,7 +4111,7 @@ describe('App', () => {
     };
     const sources = ['Voltage **(V)** < 5', '# Settings', 'First line\nSecond line', '![Circuit](#cell-A2)', '- Item', '<table><tr><td>a</td></tr></table>', 'Compact label'];
     const cells: CellDefinition[] = sources.map((source, index) => ({
-      id: String.fromCharCode(65 + index) + '1', kind: 'markdown', source, enabled: true, trigger: 'auto',
+      id: String.fromCharCode(65 + index) + '1', kind: 'markdown', source, enabled: true,
       view: {page: false, ...(index < 6 ? {display: 'rendered' as const} : {})},
     }));
     app.cells.set(cells);
@@ -4155,7 +4150,7 @@ describe('App', () => {
     ];
     const root = fixture.nativeElement as HTMLElement;
     for (const result of results) {
-      app.cells.set([{id: 'A1', kind: result.valueType === 'markdown' ? 'markdown' : 'formula', source: '1', enabled: true, trigger: 'auto'}]);
+      app.cells.set([{id: 'A1', kind: result.valueType === 'markdown' ? 'markdown' : 'formula', source: '1', enabled: true}]);
       app.graph.set({...graph, cells: [result]});
       app.selectCell('A1'); fixture.detectChanges();
       const card = root.querySelector('.inspector .value-card')!;
@@ -4275,7 +4270,7 @@ describe('App', () => {
       selectCell(id: string): void; overrideLinkedInput(id: string, source: string): void;
       resetLinkedInput(id: string): void; undo(): void;
     };
-    app.cells.set([{ id: 'A1', kind: 'input', source: '10', enabled: true, trigger: 'auto' }, { id: 'B1', kind: 'linked', source: 'A1 * 2', enabled: true, trigger: 'auto' }]);
+    app.cells.set([{ id: 'A1', kind: 'input', source: '10', enabled: true }, { id: 'B1', kind: 'linked', source: 'A1 * 2', enabled: true }]);
     app.selectCell('B1');
     app.overrideLinkedInput('B1', '7'); await fixture.whenStable(); fixture.detectChanges();
     expect(app.cells()[1].source).toBe('A1 * 2'); expect(app.cells()[1].override).toBe('7');
@@ -4301,8 +4296,8 @@ describe('App', () => {
       splitZooms(): readonly number[]; setPaneZoom(index: number, value: number): void;
     };
     const document=createSheetDocument('Fit',30,60,[
-      {id:'C3',kind:'formula',source:'1',enabled:true,trigger:'auto',view:{span:[2,3]}},
-      {id:'Other!A1',kind:'input',source:'1',enabled:true,trigger:'auto'},
+      {id:'C3',kind:'formula',source:'1',enabled:true,view:{span:[2,3]}},
+      {id:'Other!A1',kind:'input',source:'1',enabled:true},
     ],[],{columnWidths:{A:200},rowHeights:{'1':100},zoom:1});
     document.sheets=[{name:'Other',grid:{columns:4,rows:5},layout:{columnWidths:{A:300},rowHeights:{}}}];
     app.openDocument(document,null,false);await fixture.whenStable();app.viewMode.set('sheet');fixture.detectChanges();
@@ -4339,7 +4334,7 @@ describe('App', () => {
     };
     expect(app.workbookEditing()).toBe(false);
     app.editCell('A1');expect(app.workbookEditing()).toBe(false);
-    app.cells.set([{id:'A1',kind:'input',source:'"hello"',enabled:true,trigger:'auto',view:{display:'rendered',widget:{type:'text'}}}]);
+    app.cells.set([{id:'A1',kind:'input',source:'"hello"',enabled:true,view:{display:'rendered',widget:{type:'text'}}}]);
     app.viewMode.set('sheet');app.selectCell('A1');fixture.detectChanges();await fixture.whenStable();
     const root=fixture.nativeElement as HTMLElement,cell=root.querySelector<HTMLElement>('.sheet-cell[data-cell-id="A1"]')!;
     const edit=vi.spyOn(app,'editCell');
@@ -4369,7 +4364,7 @@ describe('App', () => {
       migrationFilename:ReturnType<typeof signal<string>>;workbookMigration():unknown;saveFailure():unknown;
     };
     const files=TestBed.inject(WorkbookFileService),download=vi.spyOn(files,'downloadBrowser').mockImplementation(()=>{});
-    const doc=createSheetDocument('Legacy',2,2,[{id:'A1',kind:'input',source:'1',enabled:true,trigger:'auto'}]);
+    const doc=createSheetDocument('Legacy',2,2,[{id:'A1',kind:'input',source:'1',enabled:true}]);
     app.openDocument({...doc,sourceFormatVersion:1,sourceFileName:'original.sheet.py'},true);
     expect(app.migrationFilename()).toBe('original.workbook.py');
     app.migrationFilename.set('original.sheet.py');await app.saveSheet();expect(download).not.toHaveBeenCalled();
@@ -4389,7 +4384,7 @@ describe('App', () => {
       saveFeedback():string|null;
     };
     const runtime=TestBed.inject(RuntimeService);
-    const doc=createSheetDocument('Legacy',2,2,[{id:'A1',kind:'input',source:'1',enabled:true,trigger:'auto'}]);
+    const doc=createSheetDocument('Legacy',2,2,[{id:'A1',kind:'input',source:'1',enabled:true}]);
     app.openDocument({...doc,sourceFormatVersion:1,sourceFileName:'budget.sheet.py'},true);
     app.embeddedSession.set(true);fixture.detectChanges();
     const notice=fixture.nativeElement.querySelector('app-workbook-migration-notice') as HTMLElement;
@@ -4437,8 +4432,8 @@ describe('App', () => {
       workspacePanes(): readonly Record<string,unknown>[]; graphThisSheet: {set(value:boolean):void};
     };
     const document = createSheetDocument('Compare sheets', 2, 3, [
-      {id: 'A1', kind: 'input', source: '10', enabled: true, trigger: 'auto'},
-      {id: 'Budget!A1', kind: 'input', source: '20', enabled: true, trigger: 'auto'},
+      {id: 'A1', kind: 'input', source: '10', enabled: true},
+      {id: 'Budget!A1', kind: 'input', source: '20', enabled: true},
     ]);
     document.sheets = [{name: 'Budget', grid: {columns: 4, rows: 5}, layout: {columnWidths: {A: 180}, rowHeights: {}}}];
     app.openDocument(document, null, false); await fixture.whenStable();
@@ -4480,11 +4475,11 @@ describe('App', () => {
       cells(): CellDefinition[]; setPaneNoteZoom(index: number, value: number): void;
     };
     const document = createSheetDocument('Compare notes', 2, 3, [
-      {id: 'A1', name: 'amount', kind: 'input', source: '10', enabled: true, trigger: 'auto'},
-      {id: 'A2', kind: 'markdown', source: '# First note', enabled: true, trigger: 'auto'},
-      {id: 'B2', kind: 'markdown', source: '# Other first-sheet note', enabled: true, trigger: 'auto'},
-      {id: 'Budget!A1', name: 'amount', kind: 'input', source: '20', enabled: true, trigger: 'auto'},
-      {id: 'Budget!A2', kind: 'markdown', source: '# Budget note', enabled: true, trigger: 'auto'},
+      {id: 'A1', name: 'amount', kind: 'input', source: '10', enabled: true},
+      {id: 'A2', kind: 'markdown', source: '# First note', enabled: true},
+      {id: 'B2', kind: 'markdown', source: '# Other first-sheet note', enabled: true},
+      {id: 'Budget!A1', name: 'amount', kind: 'input', source: '20', enabled: true},
+      {id: 'Budget!A2', kind: 'markdown', source: '# Budget note', enabled: true},
     ]);
     document.sheets = [{name: 'Budget', grid: {columns: 2, rows: 3}, layout: {columnWidths: {}, rowHeights: {}}}];
     app.openDocument(document, null, false); await fixture.whenStable();
@@ -4560,9 +4555,9 @@ describe('App', () => {
       rowHeights(): Record<string, number>; selectedId(): string; selectCell(id: string): void; undo(): void;
     };
     const document = createSheetDocument('Insert', 3, 4, [
-      { id: 'A1', kind: 'input', source: '2', name: 'base', enabled: true, trigger: 'auto' },
-      { id: 'A2', kind: 'formula', source: 'base * 2', name: 'doubled', enabled: true, trigger: 'auto' },
-      { id: 'B3', kind: 'formula', source: 'doubled + 1', name: 'more', enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'input', source: '2', name: 'base', enabled: true },
+      { id: 'A2', kind: 'formula', source: 'base * 2', name: 'doubled', enabled: true },
+      { id: 'B3', kind: 'formula', source: 'doubled + 1', name: 'more', enabled: true },
     ]);
     document.layout.rowHeights = { '1': 40, '3': 90 };
     app.openDocument(document, null, false); await fixture.whenStable();
@@ -4604,10 +4599,10 @@ describe('App', () => {
       cells(): CellDefinition[]; rows(): readonly number[]; rowHeights(): Record<string, number>; undo(): void;
     };
     const document = createSheetDocument('Delete', 4, 5, [
-      { id: 'A1', kind: 'input', source: '2', name: 'base', enabled: true, trigger: 'auto' },
-      { id: 'A2', kind: 'formula', source: 'A1 * 2', enabled: true, trigger: 'auto' },
-      { id: 'B3', kind: 'formula', source: 'A2 + base', name: 'total', enabled: true, trigger: 'auto' },
-      { id: 'C1', kind: 'formula', source: 'base', name: 'chart', enabled: true, trigger: 'auto', view: { display: 'rendered', span: [1, 4] } },
+      { id: 'A1', kind: 'input', source: '2', name: 'base', enabled: true },
+      { id: 'A2', kind: 'formula', source: 'A1 * 2', enabled: true },
+      { id: 'B3', kind: 'formula', source: 'A2 + base', name: 'total', enabled: true },
+      { id: 'C1', kind: 'formula', source: 'base', name: 'chart', enabled: true, view: { display: 'rendered', span: [1, 4] } },
     ]);
     document.layout.rowHeights = { '2': 50, '4': 70 };
     app.openDocument(document, null, false); await fixture.whenStable();
@@ -4682,7 +4677,7 @@ describe('App', () => {
     };
     const document = createSheetDocument('Sheets', 2, 3, FINANCIAL_CELLS);
     document.sheetName = 'Main';
-    document.cells = [...document.cells, { id: 'Budget!B2', kind: 'input', source: '5', name: 'rent', enabled: true, trigger: 'auto' }];
+    document.cells = [...document.cells, { id: 'Budget!B2', kind: 'input', source: '5', name: 'rent', enabled: true }];
     document.sheets = [{name: 'Budget', grid: {columns: 4, rows: 5}, layout: {columnWidths: {}, rowHeights: {}}}];
     app.openDocument(document, null, false); await fixture.whenStable();
     const host = fixture.nativeElement as HTMLElement;
@@ -4826,7 +4821,7 @@ describe('App', () => {
   it('keeps occupied tiles and cell drafts inside resized sheet dimensions', () => {
     const fixture = createWithFinancialModel();
     const app = fixture.componentInstance as unknown as { cells: ReturnType<typeof signal<CellDefinition[]>>; cellDrafts: ReturnType<typeof signal<Map<string, unknown>>>; resizeSheetExtent: (extent: {columns: number; rows: number}) => void; columns: () => string[]; rows: () => number[] };
-    app.cells.set([{id: 'D7', kind: 'input', source: '1', enabled: true, trigger: 'auto', view: {span: [2, 3]}}]);
+    app.cells.set([{id: 'D7', kind: 'input', source: '1', enabled: true, view: {span: [2, 3]}}]);
     app.cellDrafts.set(new Map([['H12', {source: 'pending'}]]));
     app.resizeSheetExtent({columns: 1, rows: 1});
     expect(app.columns()).toHaveLength(8); expect(app.rows()).toHaveLength(12);
@@ -5109,7 +5104,7 @@ describe('App start', () => {
       attachSession(): Promise<unknown>; monitorSession(): () => void;
     };
     const document = createSheetDocument('untitled', 2, 2, [
-      {id: 'A1', kind: 'markdown', source: '# New workbook', enabled: true, trigger: 'auto'},
+      {id: 'A1', kind: 'markdown', source: '# New workbook', enabled: true},
     ]);
     runtime.attachSession = async () => ({revision: 1, mode: 'edit', document, graph});
     runtime.monitorSession = () => () => {};
@@ -5138,7 +5133,7 @@ describe('App start', () => {
       restartSession(document: ReturnType<typeof createSheetDocument>): Promise<unknown>;
     };
     const document = createSheetDocument('Prices', 2, 2, [
-      {id: 'A1', kind: 'formula', source: '1 + 1', name: 'two', enabled: true, trigger: 'auto'},
+      {id: 'A1', kind: 'formula', source: '1 + 1', name: 'two', enabled: true},
     ], ['pandas']);
     runtime.attachSession = async () => ({revision: 1, mode: 'edit', document, graph,
       environment: {sandboxed: false, restart: true, missing: ['pandas']}});

@@ -3,7 +3,7 @@ import { createSheetDocument } from '../sheet-file';
 import type { CellDefinition, GraphResult } from '../sheet.types';
 import { LiveAgentWorkbook, type AgentCommand, type LiveAgentPorts } from './live-agent-workbook';
 
-const cell = (id: string, source: string): CellDefinition => ({ id, source, kind: 'input', enabled: true, trigger: 'auto' });
+const cell = (id: string, source: string): CellDefinition => ({ id, source, kind: 'input', enabled: true });
 const command = (operation: AgentCommand['operation'], payload = {}): AgentCommand => ({
   id: 'command', operation, payload, expiresAt: Date.now() + 60000,
 });

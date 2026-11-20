@@ -24,7 +24,7 @@ interface WorkbookCase {
 describe('workbook files written by the app (tests/fixtures/workbooks)', () => {
   for (const workbook of (fixtures as { cases: WorkbookCase[] }).cases) {
     it(`writes ${workbook.name}`, async () => {
-      const cells: CellDefinition[] = workbook.cells.map((cell) => ({ enabled: true, trigger: 'auto', ...cell }));
+      const cells: CellDefinition[] = workbook.cells.map((cell) => ({ enabled: true, ...cell }));
       const document = createSheetDocument(
         workbook.name,
         10,

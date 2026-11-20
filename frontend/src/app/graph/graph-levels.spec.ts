@@ -2,7 +2,7 @@ import { buildGraphLayout, type GraphDirection } from '../graph-layout';
 import { GraphLevelScrollState, LEVEL_HEADER, graphLevels, projectGraphLevels, revealInLevel } from './graph-levels';
 
 function sample(direction:GraphDirection) {
-  const inputs=Array.from({length:12},(_,i)=>({id:'A'+(i+1),kind:'input' as const,source:'1',enabled:true,trigger:'auto' as const}));
+  const inputs=Array.from({length:12},(_,i)=>({id:'A'+(i+1),kind:'input' as const,source:'1',enabled:true}));
   return buildGraphLayout([...inputs,{...inputs[0],id:'B1',kind:'formula'}],{B1:inputs.map(cell=>cell.id)},{direction});
 }
 it.each(['horizontal','vertical'] as const)('scrolls %s levels independently and keeps edge endpoints within the panel',direction=>{
@@ -32,7 +32,7 @@ it('clamps restored offsets after filters, zoom and viewport changes',()=>{
   expect(empty).toMatchObject({width:0,height:0,edges:[],levels:[]});
 });
 it('does not draw misleading connections when both cards are offscreen',()=>{
-  const sources=Array.from({length:20},(_,i)=>({id:'A'+i,kind:'formula' as const,source:'1',enabled:true,trigger:'auto' as const}));
+  const sources=Array.from({length:20},(_,i)=>({id:'A'+i,kind:'formula' as const,source:'1',enabled:true}));
   const consumers=sources.map(cell=>({...cell,id:'B'+cell.id.slice(1)}));
   const layout=buildGraphLayout([...sources,...consumers],Object.fromEntries(consumers.map((cell,i)=>[cell.id,[sources[i].id]])));
   const projected=projectGraphLevels(graphLevels(layout),layout,{width:600,height:300},1,new Map());

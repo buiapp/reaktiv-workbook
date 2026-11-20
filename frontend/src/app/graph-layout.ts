@@ -222,7 +222,7 @@ export function buildGraphLayout(
 export function resizePinnedGraph(layout: GraphLayout, id: string, size: GraphNodeSize): GraphLayout {
   const previous = new Map(layout.nodes.map(node => [node.id, node]));
   if (!previous.has(id)) return layout;
-  const cells = layout.nodes.map(node => ({id:node.id, kind:node.kind, source:'', enabled:true, trigger:'auto' as const}));
+  const cells = layout.nodes.map(node => ({id:node.id, kind:node.kind, source:'', enabled:true}));
   const dependencies: Record<string,string[]> = {};
   for (const edge of layout.edges) (dependencies[edge.to] ??= []).push(edge.from);
   const sizes = new Map(layout.nodes.map(node => [node.id, node.id === id ? size : {width:node.width, height:node.height}]));

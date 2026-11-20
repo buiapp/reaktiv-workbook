@@ -11,7 +11,7 @@ import { GraphLevelScrollState } from './graph-levels';
 class Host {
   connections=signal<'selected'|'all'>('all');
   state=new GraphLevelScrollState();selected=signal('');clicks=0;
-  layout=signal(buildGraphLayout(Array.from({length:16},(_,i)=>({id:'A'+i,kind:'formula',source:'1',enabled:true,trigger:'auto'})),Object.fromEntries(Array.from({length:8},(_,i)=>['A'+(i+8),['A'+i]]))));
+  layout=signal(buildGraphLayout(Array.from({length:16},(_,i)=>({id:'A'+i,kind:'formula',source:'1',enabled:true})),Object.fromEntries(Array.from({length:8},(_,i)=>['A'+(i+8),['A'+i]]))));
 }
 it('reveals hidden connections, preserves widget gestures, and reveals a newly selected cell',async()=>{
   await TestBed.configureTestingModule({imports:[Host]}).compileComponents();

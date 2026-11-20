@@ -266,12 +266,13 @@ def test_function_cells_and_update_callbacks_run_on_owner_loop(workbook_path):
         assert session.values.calculate.call(5) == 465
 
 
-def test_resource_completion_after_manual_effect_publishes_live_state(workbook_path):
+def test_resource_completion_after_rerunning_an_effect_publishes_live_state(workbook_path):
     import time
     document = SheetDocument.load(workbook_path)
     document = replace(document, cells=(*document.cells,
         CellDefinition('C1','resource','await asyncio.sleep(0.05)\nreturn total * 2',name='loaded'),
-        CellDefinition('D1','effect','cells.quantity.set(5)',trigger='manual'),
+        # Runs once on load (quantity 3 → 5); Run effect adds 2 more.
+        CellDefinition('D1','effect','cells.quantity.update(lambda n: n + 2)'),
     ))
     document.save(workbook_path)
     with SheetSession.load(workbook_path) as session:
@@ -283,7 +284,7 @@ def test_resource_completion_after_manual_effect_publishes_live_state(workbook_p
         while time.monotonic() < deadline:
             state = post(endpoint,token,'/v1/session',{})
             loaded = next(c for c in state['graph']['cells'] if c['id']=='C1')
-            if loaded['value'] == 200:
+            if loaded['value'] == 280:
                 assert state['revision'] > pending['sessionRevision']
                 break
             time.sleep(0.02)

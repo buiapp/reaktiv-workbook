@@ -124,7 +124,7 @@ def test_effect_set_of_same_value_honors_always_changed_input_equality():
             "A1", "input", "1", name="number", equal="lambda previous, current: False"
         ),
         CellDefinition("B1", "effect", "print(number)"),
-        CellDefinition("C1", "effect", "cells.number.set(1)", trigger="manual"),
+        CellDefinition("C1", "effect", "cells.number.set(1)"),
     ]
     s = w.apply(cells)
     runs = s.effects[0]["triggerCount"]

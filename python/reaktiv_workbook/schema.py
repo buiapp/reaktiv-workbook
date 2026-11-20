@@ -33,7 +33,6 @@ class CellMetadata:
     position: str
     kind: str
     enabled: bool = True
-    trigger: str = "auto"
     color: str = ""
     label: str = ""
     save_value: bool = True
@@ -119,6 +118,7 @@ def cell(
     target: DescriptorT,
     *,
     enabled: bool = True,
+    # Older files write trigger="auto" on effects; manual effects were removed (use actions).
     trigger: str = "auto",
     color: str = "",
     label: str = "",
@@ -136,6 +136,7 @@ def cell(
     target: None = None,
     *,
     enabled: bool = True,
+    # Older files write trigger="auto" on effects; manual effects were removed (use actions).
     trigger: str = "auto",
     color: str = "",
     label: str = "",
@@ -152,6 +153,7 @@ def cell(
     target: Optional[Any] = None,
     *,
     enabled: bool = True,
+    # Older files write trigger="auto" on effects; manual effects were removed (use actions).
     trigger: str = "auto",
     color: str = "",
     label: str = "",
@@ -174,8 +176,8 @@ def cell(
         raise ValueError(f"Invalid cell position: {position!r}")
     if resource_mode not in {"simple", "explicit"}:
         raise ValueError("Resource mode must be simple or explicit")
-    if trigger not in {"auto", "manual"}:
-        raise ValueError(f"Invalid effect trigger: {trigger!r}")
+    from .model import check_effect_trigger
+    check_effect_trigger(trigger, position)
     if color and not re.fullmatch(r"#[0-9A-Fa-f]{6}", color):
         raise ValueError(f"Invalid cell color: {color!r}")
     if label and (not label.isidentifier() or keyword.iskeyword(label)):
@@ -202,18 +204,18 @@ def cell(
             def compare(previous: Any, current: Any) -> bool:
                 return bool(untracked(lambda: comparison(previous, current)))
             member._equal = compare
-        if kind != "effect" and (not enabled or trigger != "auto"):
-            raise ValueError("enabled and trigger options apply only to effects")
+        if kind != "effect" and not enabled:
+            raise ValueError("enabled applies only to effects")
         if override is not None:
             if not isinstance(override, str):
                 raise TypeError("Linked input override must be a string")
             if not isinstance(member, LinkedDescriptor):
                 raise ValueError("override applies only to linked inputs")
             member = RestoredLinkedDescriptor(cast(LinkedDescriptor[Any], member), override)
-        metadata = CellMetadata(position, kind, enabled, trigger, color.lower(), label, save_value)
+        metadata = CellMetadata(position, kind, enabled, color.lower(), label, save_value)
         setattr(member, "__reaktiv_workbook_cell__", metadata)
         if isinstance(member, EffectDescriptor):
-            member.initialize_eagerly = enabled and trigger == "auto"
+            member.initialize_eagerly = enabled
         return member
 
     return decorate if target is None else decorate(target)

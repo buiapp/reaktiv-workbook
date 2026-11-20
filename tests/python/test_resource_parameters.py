@@ -32,13 +32,14 @@ def test_live_dependencies_follow_branches_and_function_reads():
 def test_notes_linked_effects_errors_and_untracked_reads():
     w=ReactiveWorkbook()
     try:
-        snapshot=w.apply([C('A1','input','True',name='enabled'),C('A2','input','5',name='amount'),
+        cells=[C('A1','input','True',name='enabled'),C('A2','input','5',name='amount'),
             C('B1','linked','amount if enabled else 0'),
             C('B2','markdown','{{ amount if enabled else 0 }}'),
             C('C1','effect','if enabled:\n    print(amount)'),
-            C('C2','effect','print(amount)',trigger='manual'),
+            C('C2','effect','print(amount)',enabled=False),
             C('D1','formula','enabled\nraise ValueError("stop")\namount'),
-            C('D2','formula','untracked(lambda: amount)')])
+            C('D2','formula','untracked(lambda: amount)')]
+        snapshot=w.apply(cells)
         for cell_id in ['B1','B2','C1']:
             assert snapshot.dependencies[cell_id] == ['A1','A2']
         assert snapshot.dependencies['C2'] == []
@@ -46,7 +47,8 @@ def test_notes_linked_effects_errors_and_untracked_reads():
         assert snapshot.dependencies['D1'] == ['A1']
         assert snapshot.dependency_states['D1'] == 'partial'
         assert snapshot.dependencies['D2'] == []
-        ran=w.run_effect('C2')
+        # Switched on, the effect runs and its reads become observed edges.
+        ran=w.apply([C('C2','effect','print(amount)') if cell.id=='C2' else cell for cell in cells])
         assert ran.dependencies['C2']==['A2']
     finally:
         w.close()

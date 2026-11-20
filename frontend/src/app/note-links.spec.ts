@@ -9,7 +9,6 @@ const note = (id: string, name?: string, source = '# Note'): CellDefinition => (
   kind: 'markdown',
   source,
   enabled: true,
-  trigger: 'auto',
 });
 
 const cells: CellDefinition[] = [
@@ -17,7 +16,7 @@ const cells: CellDefinition[] = [
   note('F3'),
   note('Lab!A1', 'lab_notes'),
   note('Lab!B2'),
-  { id: 'A1', name: 'rate', kind: 'input', source: '5', enabled: true, trigger: 'auto' },
+  { id: 'A1', name: 'rate', kind: 'input', source: '5', enabled: true },
 ];
 
 describe('note links', () => {

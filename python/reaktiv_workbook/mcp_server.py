@@ -378,7 +378,7 @@ def create_live_server(bridge: LiveWorkbookBridge, *, allowed_hosts: list[str], 
                          delete: list[str] | None = None) -> dict[str, Any]:
         """Batch create/replace complete cell definitions and delete IDs in the open workbook.
         Each cell requires id, kind, source; optional name, color (#RRGGBB), view, annotation, enabled,
-        trigger, equal, params and computation use the normal workbook format. Preserve
+        equal, params and computation use the normal workbook format. Preserve
         existing settings when replacing. Every Markdown cell MUST include view.page:
         false for worksheet labels/headings/text; true only for an intentional Notes page.
         Use view.display='rendered' to show grid Markdown. One batch is one

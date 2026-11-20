@@ -35,7 +35,6 @@ describe('ActionWorkspace lifetime', () => {
       acceptLiveGraph: vi.fn(),
       flash: vi.fn(),
       settle: vi.fn(),
-      runEffect: async () => {},
     };
     const actions = new ActionWorkspace(ports);
     const pending = actions.invoke({ name: 'old', arguments: {} });
@@ -66,7 +65,7 @@ it('allows different actions, refuses duplicates, shares frames and settles afte
     runtime:{status:signal('ready'),onSnapshot:subscribe,updateAction:async()=>state.graph(),noteMoveDocument:vi.fn(),
       runAction:(_name,_arguments,id)=>new Promise(resolve=>finishes.set(id!,resolve)),cancelAction:vi.fn(async()=>{})},
     document:()=>createSheetDocument('test',4,8,[]),requireKernel:()=>true,recordHistory:vi.fn(),evaluate:async()=>{},
-    acceptGraph:vi.fn(),acceptLiveGraph:vi.fn(),flash:vi.fn(),settle:vi.fn(),runEffect:async()=>{},
+    acceptGraph:vi.fn(),acceptLiveGraph:vi.fn(),flash:vi.fn(),settle:vi.fn(),
   };
   const actions=new ActionWorkspace(ports);
   const first=actions.invoke({name:'measure',arguments:{}}),second=actions.invoke({name:'export',arguments:{}});

@@ -75,7 +75,7 @@ def test_sheet_decorators_extend_reactive_model_without_core_changes():
     model.dispose()
 
 
-def test_composable_cell_contract_rejects_plain_methods_and_keeps_manual_effect_lazy():
+def test_composable_cell_contract_rejects_plain_methods_and_manual_effects():
     with pytest.raises(TypeError, match="outermost"):
 
         class InvalidModel(ReactiveModel):
@@ -83,19 +83,31 @@ def test_composable_cell_contract_rejects_plain_methods_and_keeps_manual_effect_
             def plain(self):
                 return 1
 
+    # Manual effects were removed: an old file says what to do instead of running them.
+    with pytest.raises(ValueError, match="move the code of effect B1 into an action"):
+
+        @sheet({"name": "Manual effect"})
+        class ManualModel(ReactiveModel):
+            amount = cell("A1", field(2))
+
+            @cell("B1", trigger="manual")
+            @effect
+            def record(self):
+                return self.amount()
+
+    # trigger="auto", which older files write on every effect, is accepted.
     events = []
 
-    @sheet({"name": "Manual effect"})
-    class ManualModel(ReactiveModel):
+    @sheet({"name": "Automatic effect"})
+    class AutoModel(ReactiveModel):
         amount = cell("A1", field(2))
 
-        @cell("B1", trigger="manual")
+        @cell("B1", trigger="auto")
         @effect
         def record(self):
             events.append(self.amount())
 
-    model = ManualModel()
-    assert events == []
+    model = AutoModel()
     model.record
     assert events == [2]
     model.dispose()
@@ -352,7 +364,7 @@ def test_equal_formula_replacement_does_not_trigger_downstream_effect():
     assert effect_result(snapshot, "A3")["triggerCount"] == 1
 
 
-def test_multiline_formula_and_manual_effect_support_workflow_steps():
+def test_multiline_formula_and_effect_rerun_support_workflow_steps():
     workbook = ReactiveWorkbook()
     model = [
         CellDefinition("A1", "input", "3"),
@@ -361,19 +373,21 @@ def test_multiline_formula_and_manual_effect_support_workflow_steps():
             "formula",
             "intermediate = A1 * 4\nprint('formula ready')\nreturn intermediate + 1",
         ),
-        CellDefinition("A3", "effect", "print(f'published:{A2}')", trigger="manual"),
+        CellDefinition("A3", "effect", "print(f'published:{A2}')"),
     ]
 
     initial = workbook.apply(model)
     executed = workbook.run_effect("A3")
 
     assert result(initial, "A2")["value"] == 13
-    assert effect_result(initial, "A3")["status"] == "idle"
+    assert effect_result(initial, "A3")["output"] == "published:13"
+    assert effect_result(executed, "A3")["triggerCount"] == effect_result(initial, "A3")["triggerCount"] + 1
     assert effect_result(executed, "A3")["output"] == "published:13"
     assert effect_result(executed, "A3")["status"] == "succeeded"
     assert effect_result(executed, "A3")["durationMs"] is not None
     assert [entry["message"] for entry in executed.logs] == [
         "formula ready",
+        "published:13",
         "published:13",
     ]
     assert workbook.clear_logs().logs == ()

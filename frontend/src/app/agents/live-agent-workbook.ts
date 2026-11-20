@@ -381,7 +381,7 @@ function parseCell(value: unknown): CellDefinition {
       !['input', 'linked', 'formula', 'resource', 'markdown', 'effect'].includes(String(cell['kind'])))
     throw new Error('Each cell needs id, kind and source.');
   // Full optional-field/reference validation belongs to the canonical Python writer.
-  return { enabled: true, trigger: 'auto', ...cell } as unknown as CellDefinition;
+  return { enabled: true, ...cell } as unknown as CellDefinition;
 }
 
 function parseBindings(value: unknown, document: SheetDocument): Record<string, ActionBinding> {

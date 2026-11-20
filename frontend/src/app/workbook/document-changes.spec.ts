@@ -5,7 +5,7 @@ describe('source change tracking', () => {
   it('compares source exactly without serialization and recognizes undo to the saved content', () => {
     const changes = new DocumentChanges();
     const saved = createSheetDocument('test', 10, 20, [
-      { id: 'A1', kind: 'input', source: 'x'.repeat(2_000_000), enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'input', source: 'x'.repeat(2_000_000), enabled: true },
     ]);
     const encoded = vi.spyOn(JSON, 'stringify');
     const edited = { ...saved, cells: [{ ...saved.cells[0], source: '2' }] };

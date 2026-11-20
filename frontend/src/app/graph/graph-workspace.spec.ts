@@ -4,7 +4,7 @@ import { GraphWorkspace } from './graph-workspace';
 
 describe('GraphWorkspace', () => {
   it('retains resized cards through value/selection changes and resets to the current output default', () => {
-    const state=new WorkbookState([{id:'A1',kind:'formula',source:'plot',enabled:true,trigger:'auto'}]);
+    const state=new WorkbookState([{id:'A1',kind:'formula',source:'plot',enabled:true}]);
     state.graph.update(graph=>({...graph,cells:[{id:'A1',value:null,display:'Plot',valueType:'rich-output',error:null,richOutput:{mimeType:'image/png',dataBase64:'first'}}]}));
     const selection=signal('A1'), workspace=new GraphWorkspace(state,selection,signal(''));
     workspace.showOutputs.set(true);const pane=workspace.paneLayout('',0);
@@ -18,7 +18,7 @@ describe('GraphWorkspace', () => {
   });
 
   it('resizes a pinned scope without following new selection/dependencies or changing another pin', () => {
-    const state=new WorkbookState(['A1','B1','C1'].map(id=>({id,kind:'formula',source:'1',enabled:true,trigger:'auto'})));
+    const state=new WorkbookState(['A1','B1','C1'].map(id=>({id,kind:'formula',source:'1',enabled:true})));
     state.graph.update(graph=>({...graph,dependencies:{B1:['A1']}}));
     const selection=signal('B1'), workspace=new GraphWorkspace(state,selection,signal(''));
     workspace.graphFocus.set(true);const first=workspace.paneLayout('',0), second=workspace.paneLayout('',1);
@@ -34,7 +34,7 @@ describe('GraphWorkspace', () => {
     expect(workspace.isPinned(0)).toBe(true);
   });
   it('pins layout and connections while selection and live results continue changing', () => {
-    const state=new WorkbookState(['A1','B1','C1'].map(id=>({id,kind:'formula',source:'1',enabled:true,trigger:'auto'})));
+    const state=new WorkbookState(['A1','B1','C1'].map(id=>({id,kind:'formula',source:'1',enabled:true})));
     state.graph.update(graph=>({...graph,dependencies:{B1:['A1']}}));
     const selection=signal('B1'), sheet=signal('');
     const workspace=new GraphWorkspace(state,selection,sheet);
@@ -52,7 +52,7 @@ describe('GraphWorkspace', () => {
   });
 
   it('keeps split pins independent, swaps them with their pane, and prunes deleted cells without moving survivors', () => {
-    const state=new WorkbookState(['A1','B1'].map(id=>({id,kind:'formula',source:'1',enabled:true,trigger:'auto'})));
+    const state=new WorkbookState(['A1','B1'].map(id=>({id,kind:'formula',source:'1',enabled:true})));
     state.graph.update(graph=>({...graph,dependencies:{B1:['A1']}}));
     const workspace=new GraphWorkspace(state,signal('B1'),signal(''));
     const first=workspace.paneLayout('',0), second=workspace.paneLayout('',1);
@@ -66,7 +66,7 @@ describe('GraphWorkspace', () => {
   });
 
   it('expands renderable outputs only when requested and keeps the pinned output mode', () => {
-    const state=new WorkbookState([{id:'A1',kind:'input',source:'1',enabled:true,trigger:'auto'}, {id:'B1',kind:'formula',source:'plot',enabled:true,trigger:'auto'}]);
+    const state=new WorkbookState([{id:'A1',kind:'input',source:'1',enabled:true}, {id:'B1',kind:'formula',source:'plot',enabled:true}]);
     state.graph.update(graph=>({...graph,cells:[{id:'B1',value:null,display:'Plot',valueType:'rich-output',error:null,richOutput:{mimeType:'image/png',dataBase64:'first'}}]}));
     const workspace=new GraphWorkspace(state,signal('A1'),signal(''));
     const pane=workspace.paneLayout('',0);
@@ -92,7 +92,7 @@ describe('GraphWorkspace', () => {
     const workspace = new GraphWorkspace(state, signal('A1'), signal(''));
     const first = workspace.paneLayout(''),
       second = workspace.paneLayout('Budget');
-    cells.set([{ id: 'A1', kind: 'input', source: '1', enabled: true, trigger: 'auto' }]);
+    cells.set([{ id: 'A1', kind: 'input', source: '1', enabled: true }]);
     expect(layoutReads).toBe(0);
     expect(first().total).toBe(1);
     expect(second()).toBe(first());
@@ -137,7 +137,7 @@ describe('GraphWorkspace', () => {
 });
 
 it('defaults to horizontal, remembers direction, and preserves other pinned panes during vertical resizing', () => {
-  const state=new WorkbookState(['A1','B1'].map(id=>({id,kind:'formula',source:'1',enabled:true,trigger:'auto'})));
+  const state=new WorkbookState(['A1','B1'].map(id=>({id,kind:'formula',source:'1',enabled:true})));
   state.graph.update(graph=>({...graph,dependencies:{B1:['A1']}}));
   const workspace=new GraphWorkspace(state,signal('B1'),signal(''));
   const first=workspace.paneLayout('',0),second=workspace.paneLayout('',1);
@@ -154,7 +154,7 @@ it('defaults to horizontal, remembers direction, and preserves other pinned pane
 });
 
 it('owns independent level scroll positions per pane, preserves pins, swaps positions and resets on document replacement',()=>{
-  const state=new WorkbookState([{id:'A1',kind:'input',source:'1',enabled:true,trigger:'auto'}]);
+  const state=new WorkbookState([{id:'A1',kind:'input',source:'1',enabled:true}]);
   const workspace=new GraphWorkspace(state,signal('A1'),signal(''));
   const layout=workspace.paneLayout('',0)();workspace.pin(0,layout);
   workspace.levelState(0).setOffsets(new Map([['h:0',120]]));
@@ -168,7 +168,7 @@ it('owns independent level scroll positions per pane, preserves pins, swaps posi
 });
 
 it('remembers connection and input placement preferences without changing captured pins',()=>{
-  const state=new WorkbookState([{id:'A1',kind:'input',source:'1',enabled:true,trigger:'auto'}]);
+  const state=new WorkbookState([{id:'A1',kind:'input',source:'1',enabled:true}]);
   const workspace=new GraphWorkspace(state,signal('A1'),signal(''));
   const layout=workspace.paneLayout('',0);workspace.pin(0,layout());const captured=layout();
   expect(workspace.connections()).toBe('selected');expect(workspace.inputsFirst()).toBe(false);

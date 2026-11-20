@@ -92,7 +92,7 @@ describe('RuntimeService remote kernel', () => {
     }) as typeof fetch;
     const service = new RuntimeService();
     const cells: CellDefinition[] = [
-      { id: 'A1', kind: 'input', source: '2', enabled: true, trigger: 'auto' },
+      { id: 'A1', kind: 'input', source: '2', enabled: true },
     ];
 
     await service.configureKernel('remote', 'http://127.0.0.1:8765/', [], { REGION: 'eu' });
@@ -128,7 +128,7 @@ describe('RuntimeService remote kernel', () => {
     });
     const service=new RuntimeService();
     await service.configureKernel('remote','http://kernel',[],{});
-    await service.apply([{id:'A1',kind:'input',source:'[123]'.repeat(100000),enabled:true,trigger:'auto'}]);
+    await service.apply([{id:'A1',kind:'input',source:'[123]'.repeat(100000),enabled:true}]);
     await expect(service.updateAction(definition)).resolves.toMatchObject({appliedAction:definition});
     expect(requests.at(-1)).toEqual({url:'http://kernel/v1/update-action',body:{definition,expectedRevision:'current'}});
     refuse=true;
@@ -160,7 +160,7 @@ describe('RuntimeService remote kernel', () => {
     const seen: string[] = [];
     service.onProgress(({ event, cellId }) => seen.push(`${event} ${cellId}`));
     await service.configureKernel('remote', 'http://127.0.0.1:8765/', [], {});
-    await service.apply([{ id: 'B2', kind: 'formula', source: '1', enabled: true, trigger: 'auto' }]);
+    await service.apply([{ id: 'B2', kind: 'formula', source: '1', enabled: true }]);
     expect(seen).toEqual(['start B2', 'end B2']);
     expect(polls).toBeGreaterThan(1);
   });

@@ -10,7 +10,6 @@ describe('WorkbookState', () => {
     kind: 'input',
     source: '2',
     enabled: true,
-    trigger: 'auto',
   };
 
   it('derives paused inputs and live results without copying state in effects', () => {
