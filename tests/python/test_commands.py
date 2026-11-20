@@ -71,7 +71,7 @@ def test_commands_dispatch_only_explicit_launch_commands(workbook, monkeypatch, 
     assert calls[-1][1]['host'] == '0.0.0.0' and calls[-1][1]['allow_remote'] is True
 
 
-def test_remote_session_serves_a_link_that_attaches_to_its_own_origin(workbook):
+def test_remote_session_serves_a_link_that_attaches_to_its_own_origin(workbook, served_editor):
     with SheetSession(workbook) as session:
         with pytest.raises(ValueError):
             session.open_editor(host='0.0.0.0', open_browser=False)
@@ -332,7 +332,7 @@ def test_missing_packages_offer_a_sandbox_in_a_terminal(tmp_path, monkeypatch, c
     assert len(sandboxed) == 1 and 'not installed' not in capsys.readouterr().err
 
 
-def test_allow_remote_marks_a_proxied_loopback_session_as_shared(workbook):
+def test_allow_remote_marks_a_proxied_loopback_session_as_shared(workbook, served_editor):
     assert standalone.remote_warning('127.0.0.1', 'run', False) == ''
     assert 'proxy' in standalone.remote_warning('127.0.0.1', 'run', True)
     assert 'run Python' in standalone.remote_warning('0.0.0.0', 'edit', True)

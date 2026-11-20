@@ -86,7 +86,7 @@ def test_a_root_confines_listings_and_resolves_links_and_parents_first(folder: P
             list_directory({'path': path}, folder, folder)
 
 
-def test_a_network_session_keeps_the_picker_and_path_inputs_in_the_workbook_folder(folder: Path) -> None:
+def test_a_network_session_keeps_the_picker_and_path_inputs_in_the_workbook_folder(folder: Path, served_editor: None) -> None:
     path = folder / 'picker.workbook.py'
     SheetDocument(name='Picker', cells=(
         CellDefinition('A1', 'input', '"data/secret.csv"', name='source', view={'widget': {'type': 'file'}}),
