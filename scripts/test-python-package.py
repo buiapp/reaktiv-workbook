@@ -12,7 +12,7 @@ import sys
 import tempfile
 import time
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 from reaktiv_workbook import ActionDefinition, CellDefinition, SheetDocument
@@ -44,7 +44,9 @@ def check_cli(mode, path, folder):
                 time.sleep(.1)
             assert link, f'CLI {mode} did not start'
             parts = urlsplit(link)
-            endpoint = parse_qs(parts.query)['session'][0]
+            # Resolved like the app does: `session=/` names the server that printed the link.
+            session = urlsplit(urljoin(link, parse_qs(parts.query)['session'][0]))
+            endpoint = f'{session.scheme}://{session.netloc}'
             token = parse_qs(parts.fragment)['token'][0]
             with urlopen(endpoint + '/', timeout=10) as response:
                 assert '<app-root' in response.read().decode()
