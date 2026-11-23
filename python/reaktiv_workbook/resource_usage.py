@@ -30,7 +30,8 @@ class ProcessUsage:
             if self._sampled_at is not None and now - self._sampled_at < 1 and self._cached is not None:
                 return dict(self._cached)
             try:
-                cpu = self._process.cpu_percent(interval=None)
+                # types-psutil 7.2.2.20261122 types `interval` with an unresolvable `FloatInt`.
+                cpu = self._process.cpu_percent(interval=None)  # pyright: ignore[reportUnknownMemberType]
                 memory = self._process.memory_info().rss
                 result: dict[str, Any] = {
                     "cpuPercent": cpu if self._sampled_at is not None else None,
