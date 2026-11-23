@@ -450,6 +450,8 @@ class CellValueView implements NodeView {
     const target = event.target as HTMLElement;
     const link = target.closest<HTMLAnchorElement>('a[href^="#cell-"]');
     if (link !== null) event.preventDefault();
+    // A link inside a Markdown string value is followed, not a click on the value.
+    else if (target.closest('.markdown-value a[href]') !== null) return;
     if (target.closest(INTERACTIVE_CONTENT) !== null) return;
     const references = this.renderer.references(this.node.attrs['expression'] as string);
     if (references.length === 0) return;

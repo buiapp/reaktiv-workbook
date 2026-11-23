@@ -152,6 +152,26 @@ describe('Note page editor', () => {
     expect(emitted.at(-1)).toBe('Revenue:{{ revenue }}');
   });
 
+  it('formats Markdown string values like the note around them, sanitised', async () => {
+    const summary = '## Summary\n\n- **42** items\n- see [docs](https://example.com)\n\n<img src=x onerror="alert(1)">';
+    const { fixture, page, emitted } = await mountNote('Intro\n\n{{ summary }}\n\nName: {{ name }} and {{ plain }}', [
+      { reference: 'summary', cellId: 'A1', display: summary, error: null, value: summary, markdownString: true },
+      { reference: 'name', cellId: 'A2', display: '**Ada**', error: null, value: '**Ada**', markdownString: true },
+      { reference: 'plain', cellId: 'A3', display: '**raw**', error: null, value: '**raw**' },
+    ]);
+    fixture.detectChanges();
+    const block = page.querySelector('.cell-value-node.block-value div.markdown-value') as HTMLElement;
+    expect(block.querySelector('h2')?.textContent).toBe('Summary');
+    expect([...block.querySelectorAll('li')].map((item) => item.textContent)).toEqual(['42 items', 'see docs']);
+    expect(block.querySelector('li strong')?.textContent).toBe('42');
+    expect(block.querySelector('img')?.getAttribute('onerror')).toBeNull();
+    const inline = page.querySelector('span.live-value.markdown-value') as HTMLElement;
+    expect(inline.innerHTML).toBe('<strong>Ada</strong>');
+    // A cell with Markdown turned off keeps its literal text.
+    expect([...page.querySelectorAll('.live-value')].map((value) => value.textContent)).toContain('**raw**');
+    expect(emitted).toEqual([]);
+  });
+
   it('turns typed {{ expression }} text into a live value', async () => {
     const { fixture, page, emitted } = await mountNote('Total', [
       { reference: 'total', cellId: 'B1', display: '42', error: null },

@@ -1039,6 +1039,10 @@ textarea:focus-visible {
   max-height: none;
 }
 
+/* A Markdown string value reads like the note around it. */
+.cell-value-node div.markdown-value > :first-child { margin-top: 0; }
+.cell-value-node div.markdown-value > :last-child { margin-bottom: 0; }
+
 .cell-value-node .note-embed {
   margin: 0;
   padding: 0.2em 1em;
