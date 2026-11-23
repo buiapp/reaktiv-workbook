@@ -17,6 +17,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import DOMPurify from 'dompurify';
 import { marked } from 'marked';
 import './markdown-math';
 import './markdown-mermaid';
@@ -54,6 +55,8 @@ export interface MarkdownInterpolationValue {
   linkedOverride?: string | null;
   widget?: ResolvedCellWidget;
   widgetError?: string;
+  /** A string value shown as Markdown (the cell's "Render as Markdown" setting). */
+  markdownString?: boolean;
 }
 
 const TOC_KEY = 'reaktiv-workbook:note-toc:v1';
@@ -1071,6 +1074,10 @@ function interpolateHtml(
         );
         return placeholder;
       }
+      if (whole && value?.markdownString) {
+        replacements.set(placeholder, stringMarkdownHtml(evaluated ?? value.display, normalizedExpression));
+        return placeholder;
+      }
       replacements.set(
         placeholder,
         value === undefined
@@ -1093,6 +1100,22 @@ function interpolateHtml(
       .replaceAll(placeholder, replacement);
   }
   return rendered;
+}
+
+/**
+ * A string value formatted like the note around it, as exported notes splice it in:
+ * one paragraph stays inline in the value chip; lists, headings or several paragraphs
+ * become a block. Sanitised: the text can come from anywhere (a file, a web request).
+ */
+export function stringMarkdownHtml(text: string, expression: string): string {
+  const blocks = marked.lexer(text, { gfm: true, breaks: true }).filter((token) => token.type !== 'space');
+  const title = escapeHtml(expression);
+  if (blocks.length <= 1 && (blocks[0]?.type ?? 'paragraph') === 'paragraph') {
+    const inline = marked.parseInline(text.trim(), { gfm: true, breaks: true }) as string;
+    return `<span class="live-value markdown-value" title="${title}">${DOMPurify.sanitize(inline)}</span>`;
+  }
+  const block = marked.parse(text, { async: false, gfm: true, breaks: true }) as string;
+  return `<div class="markdown-value" title="${title}">${DOMPurify.sanitize(block)}</div>`;
 }
 
 function isMarkdownTable(text: string): boolean {

@@ -13,6 +13,7 @@ menu of blocks (headings, lists, tables, images, code, math, live values).
 | --- | --- |
 | `{{ balance }}` | A live value. Any expression works: `{{ f"{balance:,.0f}" }}`, `{{ total / count }}` |
 | `{{ chart }}` | A cell's chart, table, HTML or widget (only for a bare reference) |
+| `{{ summary }}` | A cell holding a Markdown string, formatted like the note (bare reference; turn off with *Render text results as Markdown*) |
 | `[Rate: {{ rate }}](#sheet-input:rate)` | The input `rate` with its control (slider, dropdown, …) |
 | `[Add items](#sheet-action:add_items)` | A button that runs an [action](actions.md) |
 | `[Chapter 2](#note-p2_free_fall)` | A link to another note, by its label |

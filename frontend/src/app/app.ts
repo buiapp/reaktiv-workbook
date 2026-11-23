@@ -1666,6 +1666,7 @@ export class App implements OnInit, OnDestroy {
           linkedOverride: result?.linkedOverride,
           widget: result?.widget ?? (cell.view?.widget ? widgetFor(result?.value,cell.view.widget) : undefined),
           widgetError: result?.widgetError,
+          markdownString: result?.valueType === 'str' && !result.error && this.rendersMarkdown(cell.id),
         };
         // References as the note's source writes them: the label, a coordinate relative
         // to the note's sheet (A1 on the same sheet, Budget.A1 elsewhere), and the id.
