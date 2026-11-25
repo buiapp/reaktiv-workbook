@@ -3574,7 +3574,12 @@ export class App implements OnInit, OnDestroy {
   protected readonly notesEditing = this.workbookEditing;
 
   protected toggleNotesEditing(): void {
-    this.setWorkbookEditing(!this.workbookEditing());
+    this.setNotesEditing(!this.workbookEditing());
+  }
+
+  protected setNotesEditing(editing: boolean): void {
+    if (editing === this.workbookEditing()) return;
+    this.setWorkbookEditing(editing);
     if (this.autoDraftReady && this.autoDraftEnabled()) {
       this.scheduleDraftSave(this.currentDraftDocument(), this.pendingStart());
     }

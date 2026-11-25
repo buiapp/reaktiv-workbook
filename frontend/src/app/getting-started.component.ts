@@ -56,7 +56,7 @@ const tours: Record<Tour, Step[]> = {
     {
       title: 'Build a live report',
       text: 'Notes combine Markdown, live cell values, widgets, and plots. Switch to Edit to change a note; use / for blocks. In reading mode, people can interact with widgets without editing the prose.',
-      target: '.notes-mode-button',
+      target: '.workbook-mode-switch',
       view: 'notes',
     },
     {

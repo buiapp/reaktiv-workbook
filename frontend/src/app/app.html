@@ -151,13 +151,14 @@
         </button>
       }
       @if (!appRun()) {
-      <button type="button" class="notes-mode-button" aria-label="Workbook edit mode"
-        [class.editing]="workbookEditing()" [attr.aria-pressed]="workbookEditing()"
-        [title]="workbookEditing() ? 'Switch the whole workbook to View mode (Ctrl/Cmd+Shift+E)' : 'Edit the whole workbook (Ctrl/Cmd+Shift+E)'"
-        (click)="toggleNotesEditing()">
-        <app-ui-icon [name]="workbookEditing() ? 'edit' : 'check'" />
-        <span class="label">{{workbookEditing() ? 'Edit' : 'View'}}</span>
-      </button>
+      <div class="view-switch title-view-switch workbook-mode-switch" role="group" aria-label="Workbook edit mode">
+        <button type="button" [class.active]="!workbookEditing()" [attr.aria-pressed]="!workbookEditing()"
+          title="View mode: read notes and use widgets; cells, notes and actions cannot change (Ctrl/Cmd+Shift+E)"
+          (click)="setNotesEditing(false)">View</button>
+        <button type="button" [class.active]="workbookEditing()" [attr.aria-pressed]="workbookEditing()"
+          title="Edit mode: change cells, notes and actions (Ctrl/Cmd+Shift+E)"
+          (click)="setNotesEditing(true)">Edit</button>
+      </div>
       }
     </nav>
 

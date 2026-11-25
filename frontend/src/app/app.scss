@@ -2347,27 +2347,11 @@ button.log-cell:hover {
   grid-template-columns: var(--notes-sidebar-width, 264px) minmax(0, 1fr);
 }
 /* Folded away: a narrow rail with the buttons to show the list and to add a note. */
-/* Reading / editing mode of the worksheet's notes, next to the view switch. */
-.notes-mode-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 30px;
+/* View / Edit mode of the whole workbook, next to the view switch. */
+.workbook-mode-switch {
   margin-left: 10px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--ink);
-  background: var(--paper);
-  font: inherit;
-  font-size: 12.5px;
-  font-weight: 600;
 }
-.notes-mode-button:hover {
-  border-color: var(--ink);
-}
-.notes-mode-button.editing {
-  border-color: var(--ink);
+.workbook-mode-switch button.active:last-child {
   color: var(--paper);
   background: var(--ink);
 }
@@ -2961,12 +2945,8 @@ button.log-cell:hover {
   .brand-name {
     display: none;
   }
-  .notes-mode-button {
+  .workbook-mode-switch {
     margin-left: 6px;
-    padding: 0 9px;
-  }
-  .notes-mode-button .label {
-    display: none;
   }
   .statusbar .status-detail {
     display: none;

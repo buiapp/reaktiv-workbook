@@ -637,7 +637,7 @@ describe('App', () => {
     const panel = new ActionPanelComponent();
     panel.definitions = app.actionDefinitions(); panel.selected = definition.name; panel.ngOnChanges();
     app.actionWorkspacePanel = panel;
-    expect(panel.editing).toBe(false); expect(panel.hasUnappliedDrafts).toBe(false);
+    expect(panel.editing).toBe(true); // opened ready to edit, still not a draft expect(panel.hasUnappliedDrafts).toBe(false);
     await edit({ ...definition, source: 'def agent_add(self, amount: int = 1):\n    return amount * 2' });
     panel.definitions = app.actionDefinitions(); panel.ngOnChanges();
     expect(panel.hasUnappliedDrafts).toBe(false);
@@ -3180,7 +3180,7 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     switchView(compiled, 'Cells');
     fixture.detectChanges();
-    (compiled.querySelector('[aria-label="Workbook edit mode"]') as HTMLButtonElement).click();
+    (compiled.querySelector('[aria-label="Workbook edit mode"] button:last-child') as HTMLButtonElement).click();
     fixture.detectChanges();
     (compiled.querySelector('#cell-B1') as HTMLElement).click();
     fixture.detectChanges();
@@ -4343,7 +4343,7 @@ describe('App', () => {
     for(const key of ['Enter',' ']) {
       const event=new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true});input.dispatchEvent(event);expect(event.defaultPrevented).toBe(false);
     }
-    root.querySelector<HTMLButtonElement>('[aria-label="Workbook edit mode"]')!.click();fixture.detectChanges();
+    root.querySelector<HTMLButtonElement>('[aria-label="Workbook edit mode"] button:last-child')!.click();fixture.detectChanges();
     expect(app.workbookEditing()).toBe(true);expect(app.notesEditing()).toBe(true);expect(cell.draggable).toBe(true);
     expect(root.querySelectorAll('[aria-label="Workbook edit mode"]')).toHaveLength(1);
     expect(root.querySelector('[aria-label="Edit cell layout"]')).toBeNull();
@@ -5217,17 +5217,21 @@ describe('Notes reading mode', () => {
     const app = fixture.componentInstance as unknown as { notesEditing: () => boolean; workbookEditing: () => boolean; viewMode: ReturnType<typeof signal<string>> };
     const editor = () =>
       fixture.debugElement.query(By.directive(MarkdownCellEditorComponent)).componentInstance as MarkdownCellEditorComponent;
-    const button = () => compiled.querySelector('.notes-mode-button') as HTMLButtonElement;
+    const modeButton = (label: 'View' | 'Edit') => [...compiled.querySelectorAll<HTMLButtonElement>('.workbook-mode-switch button')].find((item) => item.textContent?.trim() === label)!;
 
     // A restored draft without a mode keeps editing (older drafts); an opened file reads.
     expect(app.notesEditing()).toBe(false);
-    button().click();
-    fixture.detectChanges();
-    expect(app.notesEditing()).toBe(true);
-    button().click();
+    expect(modeButton('View').getAttribute('aria-pressed')).toBe('true');
+    modeButton('View').click(); // choosing the current mode keeps it
     fixture.detectChanges();
     expect(app.notesEditing()).toBe(false);
-    expect(button().textContent).toContain('View');
+    modeButton('Edit').click();
+    fixture.detectChanges();
+    expect(app.notesEditing()).toBe(true);
+    expect(modeButton('Edit').getAttribute('aria-pressed')).toBe('true');
+    modeButton('View').click();
+    fixture.detectChanges();
+    expect(app.notesEditing()).toBe(false);
     expect(editor().readOnly).toBe(true);
     expect(editor().interactive).toBe(true); // widgets keep working while reading
     expect(compiled.querySelector('.note-sidebar-actions')).toBeNull();
@@ -5239,7 +5243,7 @@ describe('Notes reading mode', () => {
     expect(editor().readOnly).toBe(false);
     app.viewMode.set('split');fixture.detectChanges();
     expect(compiled.querySelectorAll('[aria-label="Workbook edit mode"]')).toHaveLength(1);
-    button().click();fixture.detectChanges();
+    modeButton('View').click();fixture.detectChanges();
     expect(app.workbookEditing()).toBe(false);expect(editor().readOnly).toBe(true);
     // View mode shows no formula bar: editing tools appear only in edit mode.
     expect(compiled.querySelector('[aria-label="Apply cell"]')).toBeNull();

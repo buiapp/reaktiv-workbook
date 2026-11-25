@@ -83,7 +83,7 @@ import { renderTableHtml } from './data-table';
         <div class="action-detail" [class.editing-method]="editing || (mode === 'workspace' && selectedDefinition)">
           @if (editing || (mode === 'workspace' && selectedDefinition)) {
             <div class="action-editor-bar">
-              <div class="method-identity"><span class="eyebrow">Workbook action</span><strong>{{editing ? draftLabel || editingName || 'New action' : selectedDefinition?.label || selected}}</strong><small>{{editing ? editingName || 'New action' : selected}} · {{editing ? 'Editing' : 'Read only'}}</small></div>
+              <div class="method-identity"><span class="eyebrow">Workbook action</span><strong>{{editing ? draftLabel || editingName || 'New action' : selectedDefinition?.label || selected}}</strong><small>{{editing ? editingName || 'New action' : selected}} · {{editing && canEdit ? 'Editing' : 'Read only'}}@if (!canEdit) { · switch to <strong>Edit</strong> mode in the top bar to change it}</small></div>
               <div class="editor-controls">
                 <button class="icon-button" type="button" title="Find / replace · Ctrl/Cmd+F" aria-label="Find or replace in action" (click)="editor?.openSearch()"><app-ui-icon name="search" /></button>
                 @if (current && (editingName || !editing)) {
@@ -91,8 +91,6 @@ import { renderTableHtml } from './data-table';
                 }
                 @if (editing) {
                   <button class="primary-button" type="button" aria-label="Apply action edits" [disabled]="!canEdit || !enabled || !!busyName || applying || !visibleDraftChanged()" (click)="saveDraft()">{{applying ? 'Applying…' : 'Apply edits'}}</button>
-                } @else {
-                  <button class="primary-button" type="button" aria-label="Edit action" [disabled]="!canEdit || !enabled || !!busyName || applying" (click)="edit()">Edit</button>
                 }
                 <details class="method-menu"><summary aria-label="Action options"><app-ui-icon name="more" /></summary>
                   <div class="method-menu-content">
@@ -149,7 +147,7 @@ import { renderTableHtml } from './data-table';
                     <app-ui-icon name="plus" />New action
                   </button>
                 } @else {
-                  <p class="action-empty-hint">Choose <strong>Edit</strong> to create actions.</p>
+                  <p class="action-empty-hint">Switch to <strong>Edit</strong> mode in the top bar to create actions.</p>
                 }
               }
             </div>
@@ -469,11 +467,13 @@ export class ActionPanelComponent implements OnChanges {
       }
       this.parameterKey = key;
       this.resetArguments();
-      if (this.mode === 'workspace' && !this.editing && !this.initialSource) {
-        this.restoreEditorPosition(this.selected);
-        if (this.drafts.has(this.selected)) this.edit(false);
-      }
+      if (this.mode === 'workspace' && !this.editing && !this.initialSource) this.restoreEditorPosition(this.selected);
     }
+    this.openEditor();
+  }
+  /** In Edit mode the workspace shows the selected action ready to edit; there is no separate Edit step. */
+  private openEditor(): void {
+    if (this.mode === 'workspace' && !this.editing) this.edit(false);
   }
   choose(name: string): void {
     if (this.applying) return;
@@ -486,7 +486,7 @@ export class ActionPanelComponent implements OnChanges {
     this.localError = '';
     this.resetArguments();
     this.restoreEditorPosition(name);
-    if (this.mode === 'workspace' && this.drafts.has(name)) this.edit(false);
+    this.openEditor();
   }
   private resetArguments(): void {
     this.shown = this.selected;
@@ -532,6 +532,7 @@ export class ActionPanelComponent implements OnChanges {
     this.applyMessage='';
     this.drafts.delete(this.editingName || this.newDraftKey || this.sourceName(this.draftSource) || '');
     this.editing = false;
+    this.openEditor();
   }
   create(): void {
     if (!this.canEdit || this.applying) return;

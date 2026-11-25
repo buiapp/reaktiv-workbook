@@ -188,18 +188,19 @@ it('opens methods in the shared editor and preserves unsaved edits between selec
     parameters: [],
   })) as unknown as ActionResult[];
   panel.ngOnChanges();
-  expect(panel.editing).toBe(false);
-  panel.edit();
+  // In Edit mode the selected action opens ready to edit, with no separate Edit step.
   expect(panel.editing).toBe(true);
+  expect(panel.hasUnappliedDrafts).toBe(false);
   panel.draftSource = 'def one(self):\n    return 42';
   panel.choose('two');
   expect(panel.selectedDefinition?.source).toContain('def two');
-  expect(panel.editing).toBe(false);
+  expect(panel.draftSource).toContain('def two');
   panel.choose('one');
   expect(panel.draftSource).toContain('return 42');
   panel.cancelEdit();
-  panel.edit();
+  expect(panel.editing).toBe(true);
   expect(panel.draftSource).toContain('return 1');
+  expect(panel.hasUnappliedDrafts).toBe(false);
 });
 
 
@@ -250,7 +251,7 @@ it('reports changed and stashed action drafts even when another method is select
   expect(panel.hasUnappliedDrafts).toBe(true);
   panel.choose('two');
   expect(panel.selectedDefinition?.source).toBe(second.source);
-  expect(panel.editing).toBe(false);
+  expect(panel.draftSource).toBe(second.source);
   expect(panel.hasUnappliedDrafts).toBe(true);
 });
 
@@ -376,13 +377,13 @@ it('opens inline run controls without leaving the editor or executing on inspect
   panel.ngOnChanges();
   panel.showRun();
   expect(panel.runOpen).toBe(true);
-  expect(panel.editing).toBe(false);
+  expect(panel.editing).toBe(true);
   expect(calls).toEqual([]);
   panel.invoke();
   expect(calls).toEqual([{name: 'run', arguments: {}}]);
   panel.choose('run');
   expect(panel.runOpen).toBe(false);
-  expect(panel.editing).toBe(false);
+  expect(panel.hasUnappliedDrafts).toBe(false);
 });
 
 it('keeps inspected actions clean when MCP replaces their definitions', () => {
@@ -431,15 +432,18 @@ it('refreshes untouched stashed actions while preserving actual user edits', () 
 });
 
 
-it('renders inspectable source read-only until Edit and follows agent updates without a draft', async () => {
+it('renders source read-only in View mode and editable directly in Edit mode, following agent updates without a draft', async () => {
   await TestBed.configureTestingModule({imports:[ActionPanelComponent]}).compileComponents();
   const fixture = TestBed.createComponent(ActionPanelComponent);
   const definition = {name:'inspect', source:'def inspect(self):\n    return 1', label:'Inspect', references:{}, bindings:{}, exposed:true};
   fixture.componentRef.setInput('definitions', [definition]);
   fixture.componentRef.setInput('selected', 'inspect');
   fixture.componentRef.setInput('enabled', true);
+  fixture.componentRef.setInput('canEdit', false);
   fixture.detectChanges(); await fixture.whenStable();
   const panel = fixture.componentInstance;
+  expect(fixture.nativeElement.querySelector('.method-identity').textContent).toContain('switch to Edit mode');
+  expect(fixture.nativeElement.querySelector('button[aria-label="Edit action"]')).toBeNull();
   const editor = () => fixture.debugElement.query(By.directive(PythonEditorComponent)).componentInstance as PythonEditorComponent;
   expect(editor().readOnly).toBe(true); expect(editor().value).toBe(definition.source);
   expect(panel.editing).toBe(false); expect(panel.hasUnappliedDrafts).toBe(false);
@@ -447,13 +451,20 @@ it('renders inspectable source read-only until Edit and follows agent updates wi
   fixture.detectChanges(); await fixture.whenStable();
   expect(editor().value).toContain('return 42'); expect(editor().readOnly).toBe(true);
   expect(panel.pendingDefinitions()).toEqual([]);
-  fixture.nativeElement.querySelector('button[aria-label="Edit action"]').click();
+  fixture.componentRef.setInput('canEdit', true);
   fixture.detectChanges(); await fixture.whenStable();
   expect(editor().readOnly).toBe(false); expect(panel.hasUnappliedDrafts).toBe(false);
+  expect(fixture.nativeElement.querySelector('.method-identity').textContent).not.toContain('switch to Edit mode');
   editor().valueChange.emit('def inspect(self):\n    return 99');
   expect(panel.hasUnappliedDrafts).toBe(true);
+  // Back in View mode the draft stays, locked, until Edit mode returns.
+  fixture.componentRef.setInput('canEdit', false);
+  fixture.detectChanges(); await fixture.whenStable();
+  expect(editor().readOnly).toBe(true); expect(panel.hasUnappliedDrafts).toBe(true);
+  fixture.componentRef.setInput('canEdit', true);
+  fixture.detectChanges(); await fixture.whenStable();
   panel.cancelEdit(); fixture.detectChanges(); await fixture.whenStable();
-  expect(editor().readOnly).toBe(true); expect(editor().value).toContain('return 42');
+  expect(editor().readOnly).toBe(false); expect(editor().value).toContain('return 42');
   expect(panel.hasUnappliedDrafts).toBe(false);
   fixture.destroy();
 });
@@ -520,7 +531,6 @@ it('keeps retained output distinct from a failed run and details collapsed', asy
   expect(root.querySelector('[role="alert"]')!.textContent).toContain('Device disconnected');
   expect(root.querySelector('.result-section')!.textContent).toContain('Last successful result');
   expect(root.querySelector('.result-section pre')!.textContent).toContain('42');
-  expect(root.querySelector<HTMLInputElement>('.action-label-field input')).toBeNull();
   expect(root.querySelector<HTMLDetailsElement>('.secondary-section')!.open).toBe(false);
   fixture.destroy();
 });
